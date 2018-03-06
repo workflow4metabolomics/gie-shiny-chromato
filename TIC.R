@@ -55,12 +55,20 @@ server <- function(input, output){
 		#intensity <- split(intensity, names(intensity))
 		rtimes <- chromatogram(raws, aggregationFun = 'sum')
 		rtime <- rtimes[ ,basename(colnames(rtimes)) %in% input$files]
-		for(i in 1:length(rtime)) {
-			chromato <- chromato %>% add_lines(
-				x=rtime[[i]]@rtime/60, y=rtime[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text', 
-				text=~paste('Intensity: ', round(rtime[[i]]@intensity), '<br />Retention Time: ', 
-				round(rtime[[i]]@rtime/60, digits=2))
-			)
+		for(i in 1:length(input$files)) {
+			if (length(input$files)==1) {
+                                chromato <- chromato %>% add_lines(
+                                        x=rtime@rtime/60, y=rtime@intensity, name=basename(input$files), hoverinfo='text',
+                                        text=~paste('Intensity: ', round(rtime@intensity), '<br />Retention Time: ',
+                                        round(rtime@rtime/60, digits=2))
+				)
+			} else {
+				chromato <- chromato %>% add_lines(
+					x=rtime[[i]]@rtime/60, y=rtime[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text', 
+					text=~paste('Intensity: ', round(rtime[[i]]@intensity), '<br />Retention Time: ', 
+					round(rtime[[i]]@rtime/60, digits=2))
+				)
+			}
 		}
 		return(chromato)
 	})
@@ -76,10 +84,21 @@ server <- function(input, output){
 		raws <- xdata
 		points <- chromatogram(raws, aggregationFun = 'max')
 		#points is a list of chromatogram object
-		for(i in 1:length(points)) chromato <- chromato %>% add_lines(
-				x=points[[i]]@rtime/60, y=points[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text', 
-			text=~paste('Intensity: ', round(points[[i]]@intensity), '<br />Retention Time: ', 
-				round(points[[i]]@rtime/60)))
+		point <- points[ ,basename(colnames(points)) %in% input$files]
+		for(i in 1:length(input$files)) {
+			if (length(input$files)==1) {
+				chromato <- chromato %>% add_lines(
+					x=point@rtime/60, y=point@intensity, name=basename(input$files), hoverinfo='text', 
+					text=~paste('Intensity: ', round(point@intensity), '<br />Retention Time: ', 
+					round(point@rtime/60))
+				)
+			} else {
+		                 chromato <- chromato %>% add_lines(
+                                        x=point[[i]]@rtime/60, y=point[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text',
+	                                text=~paste('Intensity: ', round(point[[i]]@intensity), '<br />Retention Time: ',
+					round(point[[i]]@rtime/60))
+			}
+		}
 		return(chromato)
 	})
 }
