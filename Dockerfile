@@ -14,7 +14,7 @@ RUN Rscript /tmp/packages-gx.R
 # Build the app
 RUN rm -rf /srv/shiny-server/sample-apps
 RUN rm /srv/shiny-server/index.html
-RUN mkdir -p /srv/shiny-server/samples/test
-RUN chmod -R 755 /srv/shiny-server/samples/test
-RUN chown shiny.shiny /srv/shiny-server/samples/test
-COPY ./TIC.R /srv/shiny-server/samples/test/app.R
+RUN mkdir -p /srv/shiny-server/samples/tic_visu
+RUN chmod -R 755 /srv/shiny-server/samples/tic_visu
+RUN chown shiny.shiny /srv/shiny-server/samples/tic_visu
+COPY ./TIC.R /srv/shiny-server/samples/tic_visu/app.R

@@ -42,34 +42,35 @@ server <- function(input, output){
 		
 		#raws <- readMSData(input$files, centroided=TRUE, msLevel=1, mode='onDisk')
 		raws <- xdata
-		#raws <- xdata[basename(rownames(xdata@phenoData@data)) %in% input$files, ]
-		#rtime <- rtime(raws)
-		#rtime <- rtime / 60
+
 		#function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
-		#intensity <- tic(raws)
-		#rtime and intensity contains all the data of all files concatenated
-		
-		#each value has a name which contain the name of the file and the scan number, separate by a point
-		#names(rtime) <- names(intensity) <- sapply(names(rtime), function(x) strsplit(x, '\\.')[[1]][1])
-		#rtime <- split(rtime, names(rtime))
-		#intensity <- split(intensity, names(intensity))
-		rtimes <- chromatogram(raws, aggregationFun = 'sum')
-		rtime <- rtimes[ ,basename(colnames(rtimes)) %in% input$files]
+		rtime <- split(rtime(raws)/60, f = fromFile(raws))
+		intensity <- split(tic(raws), f = fromFile(raws))
+
 		for(i in 1:length(input$files)) {
-			if (length(input$files)==1) {
-                                chromato <- chromato %>% add_lines(
-                                        x=rtime@rtime/60, y=rtime@intensity, name=basename(input$files), hoverinfo='text',
-                                        text=~paste('Intensity: ', round(rtime@intensity), '<br />Retention Time: ',
-                                        round(rtime@rtime/60, digits=2))
-				)
-			} else {
-				chromato <- chromato %>% add_lines(
-					x=rtime[[i]]@rtime/60, y=rtime[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text', 
-					text=~paste('Intensity: ', round(rtime[[i]]@intensity), '<br />Retention Time: ', 
-					round(rtime[[i]]@rtime/60, digits=2))
-				)
-			}
+			index <- which(basename(rownames(phenoData(raws))) == input$files[i])
+			chromato <- chromato %>% add_lines(
+				x=rtime[[index]], y=intensity[[index]], name=basename(input$files[index]), hoverinfo='text', 
+				text=~paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+			)
 		}
+
+		#rtimes <- chromatogram(raws, aggregationFun = 'sum')
+		#rtime <- rtimes[ ,basename(colnames(rtimes)) %in% input$files]
+		#for(i in 1:length(input$files)) {
+		#	if (length(input$files)==1) {
+                #                chromato <- chromato %>% add_lines(
+                #                        x=rtime@rtime/60, y=rtime@intensity, name=basename(input$files), hoverinfo='text',
+                #                        text=~paste('Intensity: ', round(rtime@intensity), '<br />Retention Time: ', round(rtime@rtime/60, digits=2))
+		#		)
+		#	} else {
+		#		chromato <- chromato %>% add_lines(
+		#			x=rtime[[i]]@rtime/60, y=rtime[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text', 
+		#			text=~paste('Intensity: ', round(rtime[[i]]@intensity), '<br />Retention Time: ', round(rtime[[i]]@rtime/60, digits=2))
+		#		)
+		#	}
+		#}
+
 		return(chromato)
 	})
 	
@@ -80,25 +81,42 @@ server <- function(input, output){
 				modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 		if(is.null(input$files)) return(chromato)
 		else if(!length(input$files)) return(chromato)
+
 		#raws <- readMSData(input$files, centroided=TRUE, msLevel=1, mode='onDisk')
 		raws <- xdata
+
+		#points is a list of bpc chromatogram object
 		points <- chromatogram(raws, aggregationFun = 'max')
-		#points is a list of chromatogram object
 		point <- points[ ,basename(colnames(points)) %in% input$files]
-		for(i in 1:length(input$files)) {
-			if (length(input$files)==1) {
-				chromato <- chromato %>% add_lines(
-					x=point@rtime/60, y=point@intensity, name=basename(input$files), hoverinfo='text', 
-					text=~paste('Intensity: ', round(point@intensity), '<br />Retention Time: ', 
-					round(point@rtime/60))
-				)
-			} else {
-		                 chromato <- chromato %>% add_lines(
-                                        x=point[[i]]@rtime/60, y=point[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text',
-	                                text=~paste('Intensity: ', round(point[[i]]@intensity), '<br />Retention Time: ',
-					round(point[[i]]@rtime/60))
-			}
-		}
+
+		#rtime <- split(rtime(raws)/60, f = fromFile(raws))
+                #function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
+                #intensity <- split(bpc(raws), f = fromFile(raws))
+
+                for(i in 1:length(input$files)) {
+                        index <- which(basename(rownames(phenoData(raws))) == input$files[i])
+                        chromato <- chromato %>% add_lines(
+                                x=rtime[[index]], y=intensity[[index]], name=basename(input$files[index]), hoverinfo='text',
+                                text=~paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                        )
+                }
+
+		#for(i in 1:length(input$files)) {
+		#	if (length(input$files)==1) {
+		#		chromato <- chromato %>% add_lines(
+		#			x=point@rtime/60, y=point@intensity, name=basename(input$files), hoverinfo='text', 
+		#			text=~paste('Intensity: ', round(point@intensity), '<br />Retention Time: ', 
+		#			round(point@rtime/60))
+		#		)
+		#	} else {
+		#                 chromato <- chromato %>% add_lines(
+                #                        x=point[[i]]@rtime/60, y=point[[i]]@intensity, name=basename(input$files[i]), hoverinfo='text',
+	        #                        text=~paste('Intensity: ', round(point[[i]]@intensity), '<br />Retention Time: ',
+		#			round(point[[i]]@rtime/60))
+		#		)
+		#	}
+		#}
+
 		return(chromato)
 	})
 }
