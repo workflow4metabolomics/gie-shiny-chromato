@@ -24,6 +24,9 @@ adjusted <- hasAdjustedRtime(xdata)
 # Making a palette
 palette <- brewer.pal(length(raw_files), "Dark2")
 
+# Versus
+versus_group <- c(which(xdata@phenoData@data$sample_group == "KO"))
+
 ui <- bootstrapPage(
 	fluidRow(
 		column(2,
@@ -39,13 +42,13 @@ ui <- bootstrapPage(
 			switchInput(
 				inputId = "color_by_group",
 				label = strong("Color by Group"),
-				value = FALSE
+				value = FALSE,
 			)
 		),
 		column(2,
 			switchInput(
 				inputId = "versus",
-				label = strong("Switch to Versus mode"),
+				label = strong("Versus mode"),
 				value = FALSE
 			)
 		)
@@ -106,13 +109,9 @@ server <- function(input, output){
 			title <- "TIC with tic()"
 			rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
 		}
-
-		#function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
-		if (input$versus){
-			intensity <- split(tic(xdata), f = fromFile(xdata))
-		} else {
-			intensity <- split(tic(xdata), f = fromFile(xdata))
-		}
+		
+                #function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
+		intensity <- split(tic(xdata, initial=FALSE), f = fromFile(xdata))
 
 		chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>% 
 			layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>% 
@@ -124,8 +123,12 @@ server <- function(input, output){
 
 		for(i in 1:length(raw_files)) {
 			index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
+			intens = intensity[[index]]
+			if ((index %in% versus_group) & (input$versus)) {
+				intens = -intens
+			}
 			chromato <- chromato %>% add_lines(
-				x=rtime[[index]], y=intensity[[index]], name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+				x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
 				text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
 			)
 		}
@@ -159,8 +162,12 @@ server <- function(input, output){
 
                 for(i in 1:length(raw_files)) {
                         index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
+                        intens = rtime[[index]]@intensity
+                        if ((index %in% versus_group) & (input$versus)) {
+                                intens = -intens
+                        }
                         chromato <- chromato %>% add_lines(
-                                x=rtime[[index]]@rtime/60, y=rtime[[index]]@intensity, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
                                 text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
                         )
                 }
@@ -199,8 +206,12 @@ server <- function(input, output){
 
                 for(i in 1:length(raw_files)) {
                         index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
+                        intens = intensity[[index]]
+                        if ((index %in% versus_group) & (input$versus)) {
+                                intens = -intens
+                        }
                         chromato <- chromato %>% add_lines(
-                                x=rtime[[index]], y=intensity[[index]], name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+                                x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
                                 text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
                         )
                 }
@@ -234,8 +245,12 @@ server <- function(input, output){
 
                 for(i in 1:length(raw_files)) {
                         index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
+                        intens = rtime[[index]]@intensity
+                        if ((index %in% versus_group) & (input$versus)) {
+                                intens = -intens
+                        }
                         chromato <- chromato %>% add_lines(
-                                x=rtime[[index]]@rtime/60, y=rtime[[index]]@intensity, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
                                 text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
                         )
                 }
