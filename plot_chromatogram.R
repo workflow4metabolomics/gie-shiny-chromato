@@ -24,32 +24,71 @@ adjusted <- hasAdjustedRtime(xdata)
 # Making a palette
 palette <- brewer.pal(length(raw_files), "Dark2")
 
-# Versus
-versus_group <- c(which(xdata@phenoData@data$sample_group == "KO"))
+#group_colors <- brewer.pal(length(raw_files), "Set1")[1:length(unique(xdata$sample_group))]
+#names(group_colors) <- unique(xdata$sample_group)
 
 ui <- bootstrapPage(
 	fluidRow(
 		column(2,
+			switchInput(
+				inputId = "color_by_group",
+				label = strong("Color_by_Group"),
+				value = FALSE
+			)
+		),
+		column(4,
 			if (adjusted) {
 				switchInput(
 					inputId = "adjustedTime",
-					label = strong("Adjusted Time"),
+					label = strong("Adjusted_Time"),
 					value = TRUE
 				)
 			}
 		),
-		column(2,
-			switchInput(
-				inputId = "color_by_group",
-				label = strong("Color by Group"),
-				value = FALSE,
-			)
-		),
-		column(2,
-			switchInput(
-				inputId = "versus",
-				label = strong("Versus mode"),
-				value = FALSE
+		column(6,
+			fluidRow(
+				tags$head(
+					tags$style(
+						type="text/css", 
+						"label.control-label, 
+						.selectize-control.single {display: table-cell; vertical-align: middle; width: 80px;} 
+						.form-group {display: table-row;} 
+						.selectize-control {margin-bottom: 10px;}"
+					)
+				),
+				column(3,
+					switchInput(
+						inputId = "versus",
+						label = strong("Versus_mode"),
+						value = FALSE
+					)
+				),
+				column(3,
+					conditionalPanel(
+						condition = "input.versus == true",
+						selectInput(
+							inputId = "group1", 
+							label = "1st Group",
+							choices = unique(xdata@phenoData@data$sample_group),
+							width = "180px"
+						)
+					)
+				),
+				column(3,
+                                        conditionalPanel(
+                                                condition = "input.versus == true",
+						uiOutput("versus_group")
+                                        )
+                                ),
+                                column(3,
+                                        conditionalPanel(
+                                                condition = "input.versus == true",
+                                                actionButton(
+                                                        inputId = "apply_versus",
+                                                        label = "Run Vs"
+                                                )
+                                        )
+                                )
 			)
 		)
 	),
@@ -91,7 +130,26 @@ server <- function(input, output){
 			color=xdata@phenoData@data$sample_group
                 } else {
                         color=xdata@phenoData@data$sample_name
+			#color=rainbow(length(xdata@phenoData@data$sample_name))
 		}
+	})
+
+	output$versus_group <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "group2",
+				label = "2nd Group",
+				choices = subset(unique(xdata@phenoData@data$sample_group), !(unique(xdata@phenoData@data$sample_group) %in% input$group1)),
+				width = "180px"
+			)
+		)
+	})
+
+	pos_group <- eventReactive(input$apply_versus, {
+		pos_group <- c(input$group1)
+	})
+	neg_group <- eventReactive(input$apply_versus, {
+		neg_group <- c(input$group2)
 	})
 
 	output$TIC <- renderPlotly({
@@ -123,9 +181,16 @@ server <- function(input, output){
 
 		for(i in 1:length(raw_files)) {
 			index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-			intens = intensity[[index]]
-			if ((index %in% versus_group) & (input$versus)) {
-				intens = -intens
+			if (input$versus) {
+				if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
+					intens = intensity[[index]]
+				} else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
+					intens = -intensity[[index]]
+				} else {
+					intens = intensity[[index]]
+				}
+			} else {
+				intens = intensity[[index]]
 			}
 			chromato <- chromato %>% add_lines(
 				x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
@@ -162,10 +227,17 @@ server <- function(input, output){
 
                 for(i in 1:length(raw_files)) {
                         index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                        intens = rtime[[index]]@intensity
-                        if ((index %in% versus_group) & (input$versus)) {
-                                intens = -intens
-                        }
+                        if (input$versus) {
+                                if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
+		                        intens = rtime[[index]]@intensity
+                                } else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
+                                        intens = -rtime[[index]]@intensity
+                                } else {
+		                        intens = rtime[[index]]@intensity
+                                }
+                        } else {
+				intens = rtime[[index]]@intensity
+			}
                         chromato <- chromato %>% add_lines(
                                 x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
                                 text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
@@ -206,9 +278,16 @@ server <- function(input, output){
 
                 for(i in 1:length(raw_files)) {
                         index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                        intens = intensity[[index]]
-                        if ((index %in% versus_group) & (input$versus)) {
-                                intens = -intens
+                        if (input$versus) {
+                                if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
+                                        intens = intensity[[index]]
+                                } else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
+                                        intens = -intensity[[index]]
+                                } else {
+                                        intens = intensity[[index]]
+                                }
+                        } else {
+                                intens = intensity[[index]]
                         }
                         chromato <- chromato %>% add_lines(
                                 x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
@@ -245,9 +324,16 @@ server <- function(input, output){
 
                 for(i in 1:length(raw_files)) {
                         index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                        intens = rtime[[index]]@intensity
-                        if ((index %in% versus_group) & (input$versus)) {
-                                intens = -intens
+                        if (input$versus) {
+                                if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
+                                        intens = rtime[[index]]@intensity
+                                } else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
+                                        intens = -rtime[[index]]@intensity
+                                } else {
+                                        intens = rtime[[index]]@intensity
+                                }
+                        } else {
+                                intens = rtime[[index]]@intensity
                         }
                         chromato <- chromato %>% add_lines(
                                 x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
