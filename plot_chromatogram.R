@@ -10,6 +10,16 @@ library(stringr)
 load("/srv/shiny-server/data/inputdata.dat")
 raw_files <- basename(rownames(xdata@phenoData@data))
 
+groups <- unique(xdata@phenoData@data$sample_group)
+
+filtered_files <- c()
+for (group %in% groups) {
+	files <- xdata@phenoData@data$sample_name[xdata@phenoData@data$sample_group == group]
+	filtered_files <- unique(c(head(files, n=5), tail(files, n=5)))
+	names(filtered_files)<- c(group, group, group, group, group, group, group, group, group, group)
+}
+print(filtered_files)
+
 # identifier_type name because of filename and not hid
 #gx_get(raw_files, identifier_type='name')
 
@@ -26,8 +36,6 @@ palette <- brewer.pal(length(raw_files), "Set1")
 
 #group_colors <- brewer.pal(length(raw_files), "Set1")[1:length(unique(xdata$sample_group))]
 #names(group_colors) <- unique(xdata$sample_group)
-
-groups <- unique(xdata@phenoData@data$sample_group)
 
 ui <- bootstrapPage(
 	fluidRow(
@@ -157,131 +165,87 @@ server <- function(input, output){
 		}
 	})
 
-	output$TIC <- renderPlotly({
+	build_chromato <- function(data, raws, method, draw_chromato, adjusted, adjusted_time, versus_mode, color, pos_group, neg_group) {
 
-		title <- "TIC"
-        
-		#function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
-		intensity <- split(tic(xdata, initial=FALSE), f = fromFile(xdata))
+                #function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
+		if (method == "tic") {
+			title <- "TIC"
+	                intensity <- split(tic(data, initial=FALSE), f = fromFile(data))
+		} else if (method == "bpi") {
+			title <- "BPC"
+			intensity <- split(bpi(data, initial=FALSE), f = fromFile(data))
+		}
 
-		chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>% 
-			layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>% 
-			config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE, 
-				modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
+                chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>%
+                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
+                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
-		if(is.null(raw_files)) return(chromato)
-		else if(!length(raw_files)) return(chromato)
+                if(is.null(raws)) return(chromato)
+                else if(!length(raws)) return(chromato)
 
-		if (draw_chromato$value != 0){
+                if (draw_chromato != 0){
 
-	                # According to Adjusted Time
-			if (adjusted) {
-				if (adjusted_time()) {
-					rtime <- split(rtime(xdata, adjusted = TRUE)/60, f = fromFile(xdata))
-				} else {
-					rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
-				}
-			} else {
-				rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
-			}
-	
-			for(i in 1:length(raw_files)) {
-				index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-				if (versus_mode()) {
-					if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
-						intens = intensity[[index]]
-					} else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
-						intens = -intensity[[index]]
-					} else {
-						intens = 0
-					}
-				} else {
-					intens = intensity[[index]]
-				}
-				chromato <- chromato %>% add_lines(
-					x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-					text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
-				)
-			}
+                        # According to Adjusted Time
+                        if (adjusted) {
+                                if (adjusted_time) {
+                                        rtime <- split(rtime(data, adjusted = TRUE)/60, f = fromFile(data))
+                                } else {
+                                        rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
+                                }
+                        } else {
+                                rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
+                        }
 
-		} else {
-                        rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
-
-                        for(i in 1:length(raw_files)) {
-                                index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                                intens = intensity[[index]]
+                        for(i in 1:length(raws)) {
+                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+                                if (versus_mode) {
+                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
+                                                intens = intensity[[index]]
+                                        } else if (data@phenoData@data$sample_group[index] %in% neg_group) {
+                                                intens = -intensity[[index]]
+                                        } else {
+                                                intens = 0
+                                        }
+                                } else {
+                                        intens = intensity[[index]]
+                                }
                                 chromato <- chromato %>% add_lines(
-                                        x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=xdata@phenoData@data$sample_name[i], 
+                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color[i],
                                         text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
                                 )
                         }
-		}
+                } else {
+                        rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
 
+                        for(i in 1:length(raws)) {
+                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+                                intens = intensity[[index]]
+                                chromato <- chromato %>% add_lines(
+                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                )
+                        }
+               }
+
+
+		return(chromato)
+	}
+
+
+	output$TIC <- renderPlotly({
+
+		chromato <- build_chromato(xdata, raw_files, "tic", draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
 		return(chromato)
 	})
 
 	output$BPC <- renderPlotly({
 
-		title = "BPC"
-
-                #function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
-                intensity <- split(bpi(xdata, initial = FALSE), f = fromFile(xdata))
-
-		chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>% 
-			layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>% 
-			config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE, 
-				modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
-
-		if(is.null(raw_files)) return(chromato)
-		else if(!length(raw_files)) return(chromato)
-
-
-                if (draw_chromato$value != 0){
-	                # According to Adjusted Time
-			if (adjusted) {
-				if (adjusted_time()) {
-					rtime <- split(rtime(xdata, adjusted = TRUE)/60, f = fromFile(xdata))
-				} else {
-					rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
-				}
-			} else {
-				rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
-			}
-
-			for(i in 1:length(raw_files)) {
-				index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-				if (versus_mode()) {
-					if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
-						intens = intensity[[index]]
-					} else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
-						intens = -intensity[[index]]
-					} else {
-						intens = intensity[[index]]
-					}
-				} else {
-					intens = intensity[[index]]
-				}
-				chromato <- chromato %>% add_lines(
-					x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-					text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
-				)
-			}
-                } else {
-                        rtime <- split(rtime(xdata, adjusted = FALSE)/60, f = fromFile(xdata))
-
-                        for(i in 1:length(raw_files)) {
-                                index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                                intens = intensity[[index]]
-                                chromato <- chromato %>% add_lines(
-                                        x=rtime[[index]], y=intens, name=basename(raw_files[i]), hoverinfo='text', color=xdata@phenoData@data$sample_name[i],
-                                        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
-                                )
-                        }
-                }
-
+                chromato <- build_chromato(xdata, raw_files, "bpi", draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
 		return(chromato)
 	})
 
+	# Not used now
 	if(FALSE){
         output$TIC_chromato <- renderPlotly({
 
