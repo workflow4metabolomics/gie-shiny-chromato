@@ -7,25 +7,18 @@ library(RColorBrewer)
 library(stringr)
 
 # Get RSession
-load("/srv/shiny-server/data/inputdata.dat")
+load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 raw_files <- basename(rownames(xdata@phenoData@data))
 
 groups <- unique(xdata@phenoData@data$sample_group)
 
-filtered_files <- c()
-for (group %in% groups) {
-	files <- xdata@phenoData@data$sample_name[xdata@phenoData@data$sample_group == group]
-	filtered_files <- unique(c(head(files, n=5), tail(files, n=5)))
-	names(filtered_files)<- c(group, group, group, group, group, group, group, group, group, group)
-}
-print(filtered_files)
+# Import files by copying (identifier_type name because of filename and not hid)
+# gx_get(raw_files, identifier_type='name')
 
-# identifier_type name because of filename and not hid
-#gx_get(raw_files, identifier_type='name')
-
-for (file in raw_files){
-  system(sprintf("ln -s /srv/shiny-server/data/datasets/%s %s", file, file))
-}
+# Symbolic link between /import and APP_PATH
+#for (file in raw_files){
+#  system(sprintf("ln -s /srv/shiny-server/data/datasets/%s %s", file, file))
+#}
 
 # In case of adjusted raws
 xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
