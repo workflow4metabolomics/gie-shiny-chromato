@@ -21,7 +21,7 @@ groups <- unique(xdata@phenoData@data$sample_group)
 #}
 
 # In case of adjusted raws
-xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
+#xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
 adjusted <- hasAdjustedRtime(xdata)
 
 # Making a palette
