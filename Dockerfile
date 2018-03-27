@@ -6,9 +6,7 @@ RUN apt-get install --no-install-recommends -y libnetcdf-dev
 
 # Install R packages
 COPY ./packages.R /tmp/packages.R
-COPY ./packages-gx.R /tmp/packages-gx.R
 RUN Rscript /tmp/packages.R
-RUN Rscript /tmp/packages-gx.R
 
 
 # Build the app
