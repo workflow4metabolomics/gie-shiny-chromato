@@ -1,6 +1,6 @@
 [![Docker Repository on Quay](https://quay.io/repository/workflow4metabolomics/gie-shiny-chromato/status "Docker Repository on Quay")](https://quay.io/repository/workflow4metabolomics/gie-shiny-chromato)
 
-# TIC and BPC Chromatograms visualization
+# TIC and BPC Chromatograms visualization (In Progress)
 
 This repository makes possible to run a Shiny application in a Galaxy Interactive Environment to display TIC and BPC chromatograms from an RData file build by the package XCMS3.
 
