@@ -1,3 +1,11 @@
+#-----------
+# DEBUG MODE
+file.create("/import/times.log", showWarnings = TRUE)
+write("Starting debug mode", file="/import/times.log", append=TRUE)
+write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+write("Loading packages", file="/import/times.log", append=TRUE)
+#-----------
+
 # Load packages
 library(shiny)
 library(shinyWidgets)
@@ -5,6 +13,12 @@ library(xcms)
 library(plotly)
 library(RColorBrewer)
 library(stringr)
+
+#-----------
+# DEBUG MODE
+write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+write("Get RSession and Import files (gx_get)", file="/import/times.log", append=TRUE)
+#-----------
 
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
@@ -25,10 +39,13 @@ groups <- unique(xdata@phenoData@data$sample_group)
 adjusted <- hasAdjustedRtime(xdata)
 
 # Making a palette
-palette <- brewer.pal(length(raw_files), "Set1")
+default_palette <- rainbow(length(raw_files))
 
-#group_colors <- brewer.pal(length(raw_files), "Set1")[1:length(unique(xdata$sample_group))]
-#names(group_colors) <- unique(xdata$sample_group)
+#----------
+#DEBUG MODE
+write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+#----------
+
 
 ui <- bootstrapPage(
 	fluidRow(
@@ -112,6 +129,10 @@ ui <- bootstrapPage(
 
 server <- function(input, output){
 
+	# Calculate intensities
+        tic_intensity <- split(tic(xdata, initial=FALSE), f = fromFile(xdata))
+	bpc_intensity <- split(bpi(xdata, initial=FALSE), f = fromFile(xdata))
+
 	# Display the select input for others groups
 	output$versus_group <- renderUI({
 		tagList(
@@ -124,6 +145,7 @@ server <- function(input, output){
 		)
 	})
 
+	# Get reactive values
 	draw_chromato <- reactiveValues(value = 0)
 	observeEvent(input$draw, {
 		draw_chromato$value <- draw_chromato$value + 1
@@ -154,30 +176,30 @@ server <- function(input, output){
 			color=xdata@phenoData@data$sample_group
                 } else {
                         color=xdata@phenoData@data$sample_name
-			#color=rainbow(length(xdata@phenoData@data$sample_name))
 		}
 	})
 
-	build_chromato <- function(data, raws, method, draw_chromato, adjusted, adjusted_time, versus_mode, color, pos_group, neg_group) {
+	palette <- eventReactive(input$draw, {
+                if (col_group()){
+			palette <- brewer.pal(length(xdata@phenoData@data$sample_group), "Set1")
+                } else {
+			palette <- rainbow(length(raw_files))
+                }
+        })
 
-                #function tic of MsnBase faster than chromatogram of XCMS (for me, to check)
-		if (method == "tic") {
-			title <- "TIC"
-	                intensity <- split(tic(data, initial=FALSE), f = fromFile(data))
-		} else if (method == "bpi") {
-			title <- "BPC"
-			intensity <- split(bpi(data, initial=FALSE), f = fromFile(data))
-		}
 
-                chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>%
-                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
-                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
-                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
-
-                if(is.null(raws)) return(chromato)
-                else if(!length(raws)) return(chromato)
+	# Building chromatogram function
+	build_chromato <- function(data, raws, title, intensity, draw_chromato, adjusted, adjusted_time, versus_mode, color, pos_group, neg_group) {
 
                 if (draw_chromato != 0){
+
+	                chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette()) %>%
+	                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+	                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
+	                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
+
+	                if(is.null(raws)) return(chromato)
+	                else if(!length(raws)) return(chromato)
 
                         # According to Adjusted Time
                         if (adjusted) {
@@ -204,11 +226,20 @@ server <- function(input, output){
                                         intens = intensity[[index]]
                                 }
                                 chromato <- chromato %>% add_lines(
-                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color[i],
+                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i],
                                         text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
                                 )
                         }
                 } else {
+
+                        chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
+                                layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+                                config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
+                                        modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
+
+                        if(is.null(raws)) return(chromato)
+                        else if(!length(raws)) return(chromato)
+
                         rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
 
                         for(i in 1:length(raws)) {
@@ -221,20 +252,41 @@ server <- function(input, output){
                         }
                }
 
-
 		return(chromato)
 	}
 
 
 	output$TIC <- renderPlotly({
+		#-----------
+		# DEBUG MODE
+		write("Building TIC", file="/import/times.log", append=TRUE)
+		#-----------
 
-		chromato <- build_chromato(xdata, raw_files, "tic", draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
+		chromato <- build_chromato(xdata, raw_files, "TIC", tic_intensity, draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
+		
+		#-----------
+		# DEBUG MODE  
+		write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+                write("Done", file="/import/times.log", append=TRUE)  
+		#-----------
+
 		return(chromato)
 	})
 
-	output$BPC <- renderPlotly({
+	output$BPC <- renderPlotly({		
+		#-----------
+                # DEBUG MODE
+                write("Building BPC", file="/import/times.log", append=TRUE)
+		#-----------
 
-                chromato <- build_chromato(xdata, raw_files, "bpi", draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
+                chromato <- build_chromato(xdata, raw_files, "BPC", bpc_intensity, draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
+
+                #-----------
+		# DEBUG MODE
+                write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+                write("Done", file="/import/times.log", append=TRUE)
+		#-----------
+
 		return(chromato)
 	})
 
