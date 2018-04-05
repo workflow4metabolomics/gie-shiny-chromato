@@ -133,6 +133,19 @@ server <- function(input, output){
         tic_intensity <- split(tic(xdata, initial=FALSE), f = fromFile(xdata))
 	bpc_intensity <- split(bpi(xdata, initial=FALSE), f = fromFile(xdata))
 
+	#tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
+        #tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = TRUE)
+        #bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
+        #bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = TRUE)
+
+	# + modifications in intens and add_lines
+
+	# Coming soon
+	# tic_intensity <- chromTIC
+	# tic_intensity <- chromTIC_adjusted
+	# tic_intensity <- chromBPI
+	# tic_intensity <- chromBPI_adjusted
+
 	# Display the select input for others groups
 	output$versus_group <- renderUI({
 		tagList(
@@ -242,38 +255,62 @@ server <- function(input, output){
 
                         rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
 
-                        for(i in 1:length(raws)) {
-                                index <- which(basename(rownames(phenoData(data))) == raws[i])
-                                intens = intensity[[index]]
-                                chromato <- chromato %>% add_lines(
-                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
-                                )
-                        }
+#                        for(i in 1:length(raws)) {
+#                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+#                                intens = intensity[[index]]
+#                                chromato <- chromato %>% add_lines(
+#                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+#                                        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+#                                )
+#                        }
 
 			for ( j in 1:length(groups) ) {
 				#Nb de fichiers dans le groupe
-				files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == data@phenoData@data$sample_group[j]])
+				files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
 				
 				#Nb de fichiers à récupérer
 				files_to_get <- (50%/%(length(groups)*2))
 
-				if ( files_in_group < files_to_get ) {
+				if ( files_in_group < (files_to_get*2) ) {
 					files_to_get <- files_in_group
 				}
 
-				#Initialiser un compteur
+				#Initialisation d'un compteur
 				group_file_nb <- 1
 
 				for ( i in 1:length(raws) ) {
 					#Condition qui vérifie que le fichier parcouru est bien du group[j]
-					if ( data@phenoData@data$sample_group[i] == data@phenoData@data$sample_group[j] ) {
-						#Si compteur <= files_to_get
+					if ( data@phenoData@data$sample_group[i] == groups[j] ) {
+		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+		                                intens = intensity[[index]]
+
+						#Si compteur est inférieur ou égal au nb de fichiers à afficher
+						if ( group_file_nb <= files_to_get ) {
 							#Add lines visible
-						#Sinon si compteur >= (files_in_group - files_to_get)
+				                        chromato <- chromato %>% add_lines(
+			                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+			                                        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+			                                )
+						}
+
+						#Sinon si compteur est supérieur ou égal au nb de fichiers totaux moins le nb de fichiers à afficher
+						else if ( group_file_nb > (files_in_group - files_to_get) ) {
 							#Add lines visible
-						#Sinon (Si files_to_get < compteur < (files_in_group - files_to_get)
+							chromato <- chromato %>% add_lines(
+                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        )
+						}
+
+						#Sinon si compteur se trouve dans l'intervalle des fichiers à ne pas afficher
+						else {
 							#Add line legendonly
+                                                        chromato <- chromato %>% add_lines(
+                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
+                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        )
+						}
+
 						#Incrémenter compteur
 						group_file_nb <- group_file_nb + 1
 					}
@@ -282,8 +319,12 @@ server <- function(input, output){
 		                #-----------
 		                # DEBUG MODE
                                 write("Groupe :", file="/import/times.log", append=TRUE)
-		                write(data@phenoData@data$sample_group[j], file="/import/times.log", append=TRUE)
-                                write("Nb de fichiers :", file="/import/times.log", append=TRUE)
+		                write(groups[j], file="/import/times.log", append=TRUE)
+                                write("Nb de fichiers dans le groupe :", file="/import/times.log", append=TRUE)
+                                write(files_in_group, file="/import/times.log", append=TRUE)
+                                write("Nb de fichiers à récupérer dans le groupe :", file="/import/times.log", append=TRUE)
+                                write(files_to_get, file="/import/times.log", append=TRUE)
+                                write("The Final Countdown :", file="/import/times.log", append=TRUE)
 		                write(group_file_nb-1, file="/import/times.log", append=TRUE)
 		                #-----------
 
