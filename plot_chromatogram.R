@@ -23,8 +23,8 @@ write("Get RSession and Import files (gx_get)", file="/import/times.log", append
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 raw_files <- basename(rownames(xdata@phenoData@data))
-
-groups <- unique(xdata@phenoData@data$sample_group)
+raw_groups <- xdata@phenoData@data$sample_group
+groups <- unique(raw_groups)
 
 # Import files by copying (identifier_type name because of filename and not hid)
 # gx_get(raw_files, identifier_type='name')
@@ -250,6 +250,44 @@ server <- function(input, output){
                                         text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
                                 )
                         }
+
+			for ( j in 1:length(groups) ) {
+				#Nb de fichiers dans le groupe
+				files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == data@phenoData@data$sample_group[j]])
+				
+				#Nb de fichiers à récupérer
+				files_to_get <- (50%/%(length(groups)*2))
+
+				if ( files_in_group < files_to_get ) {
+					files_to_get <- files_in_group
+				}
+
+				#Initialiser un compteur
+				group_file_nb <- 1
+
+				for ( i in 1:length(raws) ) {
+					#Condition qui vérifie que le fichier parcouru est bien du group[j]
+					if ( data@phenoData@data$sample_group[i] == data@phenoData@data$sample_group[j] ) {
+						#Si compteur <= files_to_get
+							#Add lines visible
+						#Sinon si compteur >= (files_in_group - files_to_get)
+							#Add lines visible
+						#Sinon (Si files_to_get < compteur < (files_in_group - files_to_get)
+							#Add line legendonly
+						#Incrémenter compteur
+						group_file_nb <- group_file_nb + 1
+					}
+				}
+
+		                #-----------
+		                # DEBUG MODE
+                                write("Groupe :", file="/import/times.log", append=TRUE)
+		                write(data@phenoData@data$sample_group[j], file="/import/times.log", append=TRUE)
+                                write("Nb de fichiers :", file="/import/times.log", append=TRUE)
+		                write(group_file_nb-1, file="/import/times.log", append=TRUE)
+		                #-----------
+
+			}
                }
 
 		return(chromato)
