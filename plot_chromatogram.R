@@ -26,16 +26,14 @@ raw_files <- basename(rownames(xdata@phenoData@data))
 raw_groups <- xdata@phenoData@data$sample_group
 groups <- unique(raw_groups)
 
-# Import files by copying (identifier_type name because of filename and not hid)
-# gx_get(raw_files, identifier_type='name')
-
-# Symbolic link between /import and APP_PATH
+## Import files by copying (identifier_type='name' because of filename and not hid)
+#gx_get(raw_files, identifier_type='name')
+## Symbolic link between /import and APP_PATH
 #for (file in raw_files){
 #  system(sprintf("ln -s /srv/shiny-server/data/datasets/%s %s", file, file))
 #}
 
 # In case of adjusted raws
-#xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
 adjusted <- hasAdjustedRtime(xdata)
 
 # Making a palette
@@ -118,30 +116,19 @@ ui <- bootstrapPage(
 	fluidRow(
 		plotlyOutput('BPC')
 	)
-#	fluidRow(
-#		div(style = "border-style: solid; border-width: thin;border-color: #000000",
-#			plotlyOutput('TIC_chromato')
-#		)
-#	),
-#	fluidRow(
-#		div(style = "border-style: solid; border-width: thin; border-color: #000000",
-#			plotlyOutput('BPC_chromato')
-#		)
-#	)
 )
 
 server <- function(input, output){
 
 	# Calculate intensities
-        tic_intensity <- split(tic(xdata, initial=FALSE), f = fromFile(xdata))
-	bpc_intensity <- split(bpi(xdata, initial=FALSE), f = fromFile(xdata))
+        #tic_intensity <- split(tic(xdata, initial=FALSE), f = fromFile(xdata))
+	#bpc_intensity <- split(bpi(xdata, initial=FALSE), f = fromFile(xdata))
 
-	#tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
+	# For chromatogram() function
+	tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
         #tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = TRUE)
-        #bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
+        bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
         #bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = TRUE)
-
-	# + modifications in intens and add_lines
 
 	# Coming soon
 	# tic_intensity <- chromTIC
@@ -217,17 +204,20 @@ server <- function(input, output){
 	                if(is.null(raws)) return(chromato)
 	                else if(!length(raws)) return(chromato)
 
+			## For tic()/bpi()
                         # According to Adjusted Time
-                        if (adjusted) {
-                                if (adjusted_time) {
-                                        rtime <- split(rtime(data, adjusted = TRUE)/60, f = fromFile(data))
-                                } else {
-                                        rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
-                                }
-                        } else {
-                                rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
-                        }
-
+                        #if (adjusted) {
+                        #        if (adjusted_time) {
+                        #                rtime <- split(rtime(data, adjusted = TRUE)/60, f = fromFile(data))
+                        #        } else {
+                        #                rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
+                        #        }
+                        #} else {
+                        #        rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
+                        #}
+			## For chromatogram()
+			## Change tic_intensity/bpi_intensity -> adjusted = TRUE
+			rtime <- intensity
 
                         for ( j in 1:length(groups) ) {
                                 # Nb de fichiers dans le groupe
@@ -245,35 +235,59 @@ server <- function(input, output){
                                 for ( i in 1:length(raws) ) {
                                         #Check if file is in group[j]
                                         if ( data@phenoData@data$sample_group[i] == groups[j] ) {
-                                                #index <- which(basename(rownames(phenoData(data))) == raws[i])
-                                                #intens = intensity[[index]]
 		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
 		                                if (versus_mode) {
 		                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
-		                                                intens = intensity[[index]]
+								## For tic()/bpi()
+		                                                #intens = intensity[[index]]
+								##For chromatogram() function
+			                                        intens = rtime[[index]]@intensity
 		                                        } else if (data@phenoData@data$sample_group[index] %in% neg_group) {
-		                                                intens = -intensity[[index]]
+								## For tic()/bpi()
+		                                                #intens = -intensity[[index]]
+								##For chromatogram() function
+			                                        intens = -rtime[[index]]@intensity
 		                                        } else {
 		                                                intens = 0
 		                                        }
 		                                } else {
-		                                        intens = intensity[[index]]
+							## For tic()/bpi()
+		                                        #intens = intensity[[index]]
+							## For chromatogram()
+		                                        intens = rtime[[index]]@intensity
 		                                }
 
                                                 if ( group_file_nb <= files_to_get ) {
+                                                        #chromato <- chromato %>% add_lines(
+                                                        #        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i],
+                                                        #        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        #)
+							## For chromatogram()
                                                         chromato <- chromato %>% add_lines(
-                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i],
-                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+                                                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
                                                         )
                                                 } else if ( group_file_nb > (files_in_group - files_to_get) ) {
+							## For tic()/bpi()
+                                                        #chromato <- chromato %>% add_lines(
+                                                        #        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i],
+                                                        #        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        #)
+							## For chromatogram()
                                                         chromato <- chromato %>% add_lines(
-                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i],
-                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+                                                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
                                                         )
                                                 } else {
+							## For tic()/bpi()
+                                                        #chromato <- chromato %>% add_lines(
+                                                        #        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i], visible="legendonly",
+                                                        #        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        #)
+							## For chromatogram()
                                                         chromato <- chromato %>% add_lines(
-                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=color()[i], visible="legendonly",
-                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i], visible="legendonly",
+                                                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
                                                         )
                                                 }
 
@@ -308,7 +322,10 @@ server <- function(input, output){
                         if(is.null(raws)) return(chromato)
                         else if(!length(raws)) return(chromato)
 
-                        rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
+			## For tic()/bpi()
+                        #rtime <- split(rtime(data, adjusted = FALSE)/60, f = fromFile(data))
+			## For chromatogram()
+			rtime <- intensity
 
 			for ( j in 1:length(groups) ) {
 				# Nb de fichiers dans le groupe
@@ -327,23 +344,44 @@ server <- function(input, output){
 					#Check if file is in group[j]
 					if ( data@phenoData@data$sample_group[i] == groups[j] ) {
 		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
-		                                intens = intensity[[index]]
+						## For tic()/bpi()
+		                                #intens = intensity[[index]]
+						## For chromatogram()
+						intens = rtime[[index]]@intensity
 
 						if ( group_file_nb <= files_to_get ) {
-				                        chromato <- chromato %>% add_lines(
-			                                        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-			                                        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
-			                                )
+							## For tic()/bpi()
+				                        #chromato <- chromato %>% add_lines(
+			                                #        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+			                                #        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+			                                #)
+							## For chromatogram()
+                                                        chromato <- chromato %>% add_lines(
+                                                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
+                                                        )
 						} else if ( group_file_nb > (files_in_group - files_to_get) ) {
-							chromato <- chromato %>% add_lines(
-                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+							## For tic()/bpi()
+							#chromato <- chromato %>% add_lines(
+                                                        #        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                                        #        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        #)
+							## For chromatogram()
+                                                        chromato <- chromato %>% add_lines(
+                                                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
                                                         )
 						} else {
-                                                        chromato <- chromato %>% add_lines(
-                                                                x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
-                                                                text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
-                                                        )
+							## For tic()/bpi()
+                                                        #chromato <- chromato %>% add_lines(
+                                                        #        x=rtime[[index]], y=intens, name=basename(raws[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
+                                                        #        text=paste('Intensity: ', round(intensity[[index]]), '<br />Retention Time: ', round(rtime[[index]], digits=2))
+                                                        #)
+							## For chromatogram()
+				                        chromato <- chromato %>% add_lines(
+				                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
+				                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
+				                        )
 						}
 
 						group_file_nb <- group_file_nb + 1
@@ -370,7 +408,6 @@ server <- function(input, output){
 
 		return(chromato)
 	}
-
 
 	output$TIC <- renderPlotly({
 		#-----------
@@ -405,102 +442,6 @@ server <- function(input, output){
 
 		return(chromato)
 	})
-
-	# Not used now
-	if(FALSE){
-        output$TIC_chromato <- renderPlotly({
-
-                # According to Adjusted Time
-		if (adjusted) {
-	                if (input$adjustedTime) {
-				title <- "TIC adjusted with chromatogram()"
-                                rtime <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = TRUE)
-                        } else {
-                                title <- "TIC with chromatogram()"
-                                rtime <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
-                        }
-		} else {
-                        title <- "TIC with chromatogram()"
-			rtime <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
-                }
-
-                chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>%
-                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
-                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
-                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
-
-                if(is.null(raw_files)) return(chromato)
-                else if(!length(raw_files)) return(chromato)
-
-                for(i in 1:length(raw_files)) {
-                        index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                        if (input$versus) {
-                                if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
-		                        intens = rtime[[index]]@intensity
-                                } else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
-                                        intens = -rtime[[index]]@intensity
-                                } else {
-		                        intens = rtime[[index]]@intensity
-                                }
-                        } else {
-				intens = rtime[[index]]@intensity
-			}
-                        chromato <- chromato %>% add_lines(
-                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
-                        )
-                }
-
-                return(chromato)
-        })
-
-
-        output$BPC_chromato <- renderPlotly({
-
-                # According to Adjusted Time
-		if (adjusted) {
-                        if (input$adjustedTime) {
-                                title <- "BPC adjusted with chromatogram()"
-	                        rtime <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = TRUE)
-                        } else {
-                                title <- "BPC with chromatogram()"
-	                        rtime <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
-                        }
-                } else {
-                        title <- "BPC with chromatogram()"
-			rtime <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
-                }
-
-                chromato <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette) %>%
-                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
-                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
-                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
-
-                if(is.null(raw_files)) return(chromato)
-                else if(!length(raw_files)) return(chromato)
-
-                for(i in 1:length(raw_files)) {
-                        index <- which(basename(rownames(phenoData(xdata))) == raw_files[i])
-                        if (input$versus) {
-                                if (xdata@phenoData@data$sample_group[index] %in% pos_group()) {
-                                        intens = rtime[[index]]@intensity
-                                } else if (xdata@phenoData@data$sample_group[index] %in% neg_group()) {
-                                        intens = -rtime[[index]]@intensity
-                                } else {
-                                        intens = rtime[[index]]@intensity
-                                }
-                        } else {
-                                intens = rtime[[index]]@intensity
-                        }
-                        chromato <- chromato %>% add_lines(
-                                x=rtime[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-                                text=paste('Intensity: ', round(rtime[[index]]@intensity), '<br />Retention Time: ', round(rtime[[index]]@rtime/60, digits=2))
-                        )
-                }
-
-                return(chromato)
-        })
-	}
 }
 
 shinyApp(ui, server)
