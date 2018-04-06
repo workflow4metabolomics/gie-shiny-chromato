@@ -125,16 +125,16 @@ server <- function(input, output){
 	#bpc_intensity <- split(bpi(xdata, initial=FALSE), f = fromFile(xdata))
 
 	# For chromatogram() function
-	tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
+	#tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = FALSE)
         #tic_intensity <- chromatogram(xdata, aggregationFun = 'sum', adjustedRtime = TRUE)
-        bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
+        #bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = FALSE)
         #bpc_intensity <- chromatogram(xdata, aggregationFun = 'max', adjustedRtime = TRUE)
 
 	# Coming soon
-	# tic_intensity <- chromTIC
-	# tic_intensity <- chromTIC_adjusted
-	# tic_intensity <- chromBPI
-	# tic_intensity <- chromBPI_adjusted
+	tic_intensity <- chromTIC
+	# tic_intensity_adjusted <- chromTIC_adjusted
+	bpc_intensity <- chromBPI
+	# bpc_intensity_adjusted <- chromBPI_adjusted
 
 	# Display the select input for others groups
 	output$versus_group <- renderUI({
