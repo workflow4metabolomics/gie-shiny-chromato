@@ -23,8 +23,9 @@ write("Get RSession and Import files (gx_get)", file="/import/times.log", append
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 raw_files <- basename(rownames(xdata@phenoData@data))
-raw_groups <- xdata@phenoData@data$sample_group
-groups <- unique(raw_groups)
+
+# Get group names sorted by croissant order
+groups <- names(sort(table(xdata@phenoData@data$sample_group)))
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
 #gx_get(raw_files, identifier_type='name')
@@ -188,6 +189,7 @@ server <- function(input, output){
 
                 if (draw_chromato != 0){
 
+			# Initialize a blank chromatogram
 	                displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette()) %>%
 	                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
 	                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
@@ -207,23 +209,30 @@ server <- function(input, output){
 	                         chrom <- chromatogram
 	                }
 
+			# Initialize a variable in case of little group of samples
+			files_to_add <- 0
+
                         for ( j in 1:length(groups) ) {
-                                # Nb de fichiers dans le groupe
+
+				# Get the samples to display
                                 files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
-
-                                files_to_get <- (samples_to_display%/%(length(groups)*2))
-
+                                files_to_get <- samples_to_display%/%(length(groups)*2)
                                 if ( files_in_group < (files_to_get*2) ) {
+					files_to_add <- (files_to_get*2)-files_in_group
                                         files_to_get <- files_in_group
-                                }
+                                } else { 
+                                        files_to_get <- files_to_get + files_to_add
+					files_to_add <- 0 
+				}
 
-                                #Initialisation d'un compteur
+                                # Counter initialization
                                 group_file_nb <- 1
 
                                 for ( i in 1:length(raws) ) {
                                         #Check if file is in group[j]
                                         if ( data@phenoData@data$sample_group[i] == groups[j] ) {
 		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+						# In case of versus mode
 		                                if (versus_mode) {
 		                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
 				                                intens = chrom[[index]]@intensity
@@ -236,6 +245,7 @@ server <- function(input, output){
 			                                intens = chrom[[index]]@intensity
 		                                }
 
+						# Building the chromatogram
                                                 if ( group_file_nb <= files_to_get ) {
 	                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
 	                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
@@ -257,9 +267,6 @@ server <- function(input, output){
                                         }
                                 }
 
-                                #samples_to_display <- samples_to_display - files_to_get
-                                #files_to_get <- (samples_to_display%/%(length(groups)*2))
-
                                 #-----------
                                 # DEBUG MODE
                                 write("Groupe :", file="/import/times.log", append=TRUE)
@@ -276,6 +283,7 @@ server <- function(input, output){
 
                 } else {
 
+			# Initialize a blank chromatogram
                         displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
                                 layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
                                 config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
@@ -286,17 +294,23 @@ server <- function(input, output){
 
 			chrom <- chromatogram
 
-			for ( j in 1:length(groups) ) {
-				# Nb de fichiers dans le groupe
-				files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
+			# Initialize a variable in case of little group of samples
+			files_to_add <- 0
 
-				files_to_get <- (samples_to_display%/%(length(groups)*2))
-				
+			for ( j in 1:length(groups) ) {
+
+				# Get the samples to display
+				files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
+				files_to_get <- samples_to_display%/%(length(groups)*2)
 				if ( files_in_group < (files_to_get*2) ) {
+					files_to_add <- (files_to_get*2)-files_in_group
 					files_to_get <- files_in_group
+				} else {
+					files_to_get <- files_to_get + files_to_add
+					files_to_add <- 0
 				}
 
-				#Initialisation d'un compteur
+                                # Counter initialization
 				group_file_nb <- 1
 
 				for ( i in 1:length(raws) ) {
@@ -305,6 +319,7 @@ server <- function(input, output){
 		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
 						intens = chrom[[index]]@intensity
 
+						# Building the chromatogram
 						if ( group_file_nb <= files_to_get ) {
                                                         displayed_chromatogram <- displayed_chromatogram %>% add_lines(
                                                                 x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
@@ -325,9 +340,6 @@ server <- function(input, output){
 						group_file_nb <- group_file_nb + 1
 					}
 				}
-
-				#samples_to_display <- samples_to_display - files_to_get
-				#files_to_get <- (samples_to_display%/%(length(groups)*2))
 
 		                #-----------
 		                # DEBUG MODE
