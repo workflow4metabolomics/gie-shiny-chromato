@@ -17,7 +17,7 @@ library(stringr)
 #-----------
 # DEBUG MODE
 write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
-write("Get RSession and Import files (gx_get)", file="/import/times.log", append=TRUE)
+write("Get RSession and Import files", file="/import/times.log", append=TRUE)
 #-----------
 
 # Get RSession
@@ -67,7 +67,16 @@ ui <- bootstrapPage(
 				)
 			}
 		),
-		column(6,
+		column(2,
+			switchInput(
+				inputId = "intensity",
+				label = strong("Intensity"),
+				value = FALSE,
+				offLabel = "Absolute",
+				onLabel = "Relative"
+			)
+                ),
+		column(5,
 			fluidRow(
 				tags$head(
 					tags$style(
@@ -104,7 +113,7 @@ ui <- bootstrapPage(
                                 )        
 			)
 		),
-	        column(2,
+	        column(1,
                         actionButton(
                                 inputId = "draw",
                                 label = "DRAW"
@@ -165,6 +174,10 @@ server <- function(input, output){
 
 	neg_group <- eventReactive(input$draw, {
 		neg_group <- input$group2
+	})
+
+	relative_intensity <- eventReactive(input$draw, {
+		relative_intensity <- input$intensity
 	})
 
 	color <- eventReactive(input$draw, {
@@ -245,6 +258,15 @@ server <- function(input, output){
 			                                intens = chrom[[index]]@intensity
 		                                }
 
+						# In case of relative intensity
+						#if (relative_intensity()) {
+						#	if(title=="BPC"){
+						#		# Enlever les blancs ou ne pas les afficher?
+						#		bpi_max<-max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
+						#		intens = (chrom[[index]]@intensity*100)/bpi_max
+						#	}
+						#}
+
 						# Building the chromatogram
                                                 if ( group_file_nb <= files_to_get ) {
 	                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
@@ -266,19 +288,6 @@ server <- function(input, output){
                                                 group_file_nb <- group_file_nb + 1
                                         }
                                 }
-
-                                #-----------
-                                # DEBUG MODE
-                                write("Groupe :", file="/import/times.log", append=TRUE)
-                                write(groups[j], file="/import/times.log", append=TRUE)
-                                write("Nb de fichiers dans le groupe :", file="/import/times.log", append=TRUE)
-                                write(files_in_group, file="/import/times.log", append=TRUE)
-                                write("Nb de fichiers à récupérer dans le groupe :", file="/import/times.log", append=TRUE)
-                                write(files_to_get, file="/import/times.log", append=TRUE)
-                                write("The Final Countdown :", file="/import/times.log", append=TRUE)
-                                write(group_file_nb-1, file="/import/times.log", append=TRUE)
-                                #-----------
-
                         }
 
                 } else {
@@ -340,19 +349,6 @@ server <- function(input, output){
 						group_file_nb <- group_file_nb + 1
 					}
 				}
-
-		                #-----------
-		                # DEBUG MODE
-                                write("Groupe :", file="/import/times.log", append=TRUE)
-		                write(groups[j], file="/import/times.log", append=TRUE)
-                                write("Nb de fichiers dans le groupe :", file="/import/times.log", append=TRUE)
-                                write(files_in_group, file="/import/times.log", append=TRUE)
-                                write("Nb de fichiers à récupérer dans le groupe :", file="/import/times.log", append=TRUE)
-                                write(files_to_get, file="/import/times.log", append=TRUE)
-                                write("The Final Countdown :", file="/import/times.log", append=TRUE)
-		                write(group_file_nb-1, file="/import/times.log", append=TRUE)
-		                #-----------
-
 			}
                }
 
