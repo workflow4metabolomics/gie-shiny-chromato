@@ -7,6 +7,7 @@ write("Loading packages", file="/import/times.log", append=TRUE)
 #-----------
 
 # Load packages
+#options(shiny.trace=TRUE)
 library(shiny)
 library(shinyWidgets)
 library(xcms)
@@ -51,23 +52,16 @@ write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 
 ui <- bootstrapPage(
 	fluidRow(
-		column(2,
+		column(3,
 			switchInput(
-				inputId = "color_by_group",
-				label = strong("Color_by_Group"),
-				value = FALSE
+				inputId = "input_chromatogram",
+				label = strong("Chromatogram"),
+				value = FALSE,
+				offLabel = "BPC",
+				onLabel = "TIC"
 			)
 		),
-		column(2,
-			if (adjusted) {
-				switchInput(
-					inputId = "adjustedTime",
-					label = strong("Adjusted_Time"),
-					value = FALSE
-				)
-			}
-		),
-		column(2,
+		column(3,
 			switchInput(
 				inputId = "intensity",
 				label = strong("Intensity"),
@@ -76,6 +70,31 @@ ui <- bootstrapPage(
 				onLabel = "Relative"
 			)
                 ),
+		column(3,
+			if (adjusted) {
+				switchInput(
+					inputId = "adjustedTime",
+					label = strong("Adjusted_Time"),
+					value = FALSE
+				)
+			}
+		),
+		column(2),
+	        column(1,
+                        actionButton(
+                                inputId = "draw",
+                                label = "DRAW"
+                        )
+		)
+	),
+	fluidRow(
+		column(3,
+			switchInput(
+				inputId = "color_by_group",
+				label = strong("Color_by_Group"),
+				value = FALSE
+			)
+		),
 		column(5,
 			fluidRow(
 				tags$head(
@@ -113,18 +132,10 @@ ui <- bootstrapPage(
                                 )        
 			)
 		),
-	        column(1,
-                        actionButton(
-                                inputId = "draw",
-                                label = "DRAW"
-                        )
-		)
+		column(4)
 	),
 	fluidRow(
-		plotlyOutput('TIC')
-	),
-	fluidRow(
-		plotlyOutput('BPC')
+		plotlyOutput('CHROM')
 	)
 )
 
@@ -156,6 +167,11 @@ server <- function(input, output){
 		draw_chromato$value <- draw_chromato$value + 1
 	}) 
 
+
+        which_chromatogram <- eventReactive(input$draw, {
+                which_chromatogram <- input$input_chromatogram
+        })
+
 	col_group <- eventReactive(input$draw, {
 		col_group <- input$color_by_group
 	})
@@ -182,9 +198,9 @@ server <- function(input, output){
 
 	color <- eventReactive(input$draw, {
 	        if (col_group()){
-			color=xdata@phenoData@data$sample_group
+			color <- xdata@phenoData@data$sample_group
                 } else {
-                        color=xdata@phenoData@data$sample_name
+                        color <- xdata@phenoData@data$sample_name
 		}
 	})
 
@@ -198,9 +214,15 @@ server <- function(input, output){
 
 
 	# Building chromatogram function
-	build_chromato <- function(data, raws, title, chromatogram, chromatogram_adjusted, draw_chromato, adjusted, adjusted_time, versus_mode, color, pos_group, neg_group) {
+	build_chromato <- function(data, raws, which_chromato, draw_chromato, adjusted, adjusted_time, versus_mode, relative_intensity, color, pos_group, neg_group) {
 
                 if (draw_chromato != 0){
+
+			if (which_chromato) {
+				title <- "TIC"
+			} else {
+				title <- "BPC"
+			}
 
 			# Initialize a blank chromatogram
 	                displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette()) %>%
@@ -212,14 +234,28 @@ server <- function(input, output){
 	                else if(!length(raws)) return(displayed_chromatogram)
 
 	                # According to Adjusted Time
+			# If retcor has been done
 	                if (adjusted) {
-	                         if (adjusted_time) {
-	                                chrom <- chromatogram_adjusted
-	                         } else {
-					chrom <- chromatogram
+				# If Adjusted Option is TRUE
+	                        if (adjusted_time) {
+					if (title=="TIC") {
+		                                chrom <- tic_chrom_adjusted
+					} else if (title=="BPC") {
+		                                chrom <- bpc_chrom_adjusted
+					}
+	                        } else {
+					if (title=="TIC") {
+		                                chrom <- tic_chrom
+					} else if (title=="BPC") {
+		                                chrom <- bpc_chrom
+					}
 				}
 	                } else {
-	                         chrom <- chromatogram
+				if (title=="TIC") {
+	                                chrom <- tic_chrom
+				} else if (title=="BPC") {
+	                                chrom <- bpc_chrom
+				}
 	                }
 
 			# Initialize a variable in case of little group of samples
@@ -248,24 +284,26 @@ server <- function(input, output){
 						# In case of versus mode
 		                                if (versus_mode) {
 		                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
-				                                intens = chrom[[index]]@intensity
+				                                intens <- chrom[[index]]@intensity
 		                                        } else if (data@phenoData@data$sample_group[index] %in% neg_group) {
-				                                intens = -chrom[[index]]@intensity
+				                                intens <- -chrom[[index]]@intensity
 		                                        } else {
-		                                                intens = 0
+		                                                intens <- 0
 		                                        }
 		                                } else {
-			                                intens = chrom[[index]]@intensity
+			                                intens <- chrom[[index]]@intensity
 		                                }
 
-						# In case of relative intensity
-						#if (relative_intensity()) {
-						#	if(title=="BPC"){
-						#		# Enlever les blancs ou ne pas les afficher?
-						#		bpi_max<-max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
-						#		intens = (chrom[[index]]@intensity*100)/bpi_max
-						#	}
-						#}
+						# In case of relative intensity (POURQUOI BPC EN PREMIER ???)
+						if (relative_intensity) {
+							if(title=="BPC"){
+								# Enlever les blancs ou ne pas les afficher?
+								bpi_max <- max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
+								intens <- (chrom[[index]]@intensity*100)/bpi_max
+							} else {
+								intens <- chrom[[index]]@intensity
+							}
+						}
 
 						# Building the chromatogram
                                                 if ( group_file_nb <= files_to_get ) {
@@ -294,14 +332,14 @@ server <- function(input, output){
 
 			# Initialize a blank chromatogram
                         displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
-                                layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+                                layout(title="BPC", xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
                                 config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
                                         modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
                         if(is.null(raws)) return(displayed_chromatogram)
                         else if(!length(raws)) return(displayed_chromatogram)
 
-			chrom <- chromatogram
+			chrom <- bpc_chrom
 
 			# Initialize a variable in case of little group of samples
 			files_to_add <- 0
@@ -326,7 +364,7 @@ server <- function(input, output){
 					#Check if file is in group[j]
 					if ( data@phenoData@data$sample_group[i] == groups[j] ) {
 		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
-						intens = chrom[[index]]@intensity
+						intens <- chrom[[index]]@intensity
 
 						# Building the chromatogram
 						if ( group_file_nb <= files_to_get ) {
@@ -355,39 +393,23 @@ server <- function(input, output){
 		return(displayed_chromatogram)
 	}
 
-	output$TIC <- renderPlotly({
+	output$CHROM <- renderPlotly({
 		#-----------
 		# DEBUG MODE
-		write("Building TIC", file="/import/times.log", append=TRUE)
+		write("------------", file="/import/times.log", append=TRUE)
+		write("Building Chromatogram", file="/import/times.log", append=TRUE)
 		#-----------
 
-		displayed_chromatogram <- build_chromato(xdata, raw_files, "TIC", tic_chrom, tic_chrom_adjusted, draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
-		
+		displayed_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
+
 		#-----------
 		# DEBUG MODE  
 		write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
-                write("Done", file="/import/times.log", append=TRUE)  
 		#-----------
 
 		return(displayed_chromatogram)
 	})
 
-	output$BPC <- renderPlotly({		
-		#-----------
-                # DEBUG MODE
-                write("Building BPC", file="/import/times.log", append=TRUE)
-		#-----------
-
-                displayed_chromatogram <- build_chromato(xdata, raw_files, "BPC", bpc_chrom, bpc_chrom_adjusted, draw_chromato$value, adjusted, adjusted_time(), versus_mode(), color(), pos_group(), neg_group())
-
-                #-----------
-		# DEBUG MODE
-                write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
-                write("Done", file="/import/times.log", append=TRUE)
-		#-----------
-
-		return(displayed_chromatogram)
-	})
 }
 
 shinyApp(ui, server)

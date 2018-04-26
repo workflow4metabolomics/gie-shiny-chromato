@@ -4,7 +4,7 @@ options(repos=structure(c(CRAN="https://cran.rstudio.com/")))
 # Update installed packages
 update.packages(ask=FALSE, checkBuilt=TRUE)
 # Install some packages
-install.packages(c('plotly', 'stringr', 'RColorBrewer', 'shinyWidgets'))
+install.packages(c('plotly', 'stringr', 'RColorBrewer', 'shinyjs', 'shinyWidgets'))
 
 # Install biocLite packages
 source("https://bioconductor.org/biocLite.R")
