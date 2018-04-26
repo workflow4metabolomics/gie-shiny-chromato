@@ -7,7 +7,6 @@ write("Loading packages", file="/import/times.log", append=TRUE)
 #-----------
 
 # Load packages
-#options(shiny.trace=TRUE)
 library(shiny)
 library(shinyWidgets)
 library(xcms)
@@ -27,13 +26,10 @@ raw_files <- basename(rownames(xdata@phenoData@data))
 
 # Get group names sorted by croissant order
 groups <- names(sort(table(xdata@phenoData@data$sample_group)))
+# AJOUTER GROUP AVEC 1ST LETTRE MAJ POUR LES OPTIONS
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
 #gx_get(raw_files, identifier_type='name')
-## Symbolic link between /import and APP_PATH
-#for (file in raw_files){
-#  system(sprintf("ln -s /srv/shiny-server/data/datasets/%s %s", file, file))
-#}
 
 # In case of adjusted raws (retcor)
 adjusted <- hasAdjustedRtime(xdata)
@@ -51,8 +47,21 @@ write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 
 
 ui <- bootstrapPage(
+
+# Used to modify the CSS
+#	tags$head(
+#		tags$style(
+#			type="text/css", 
+#			"label.control-label, 
+#			.selectize-control.single {display: table-cell; vertical-align: middle; width: 80px;} 
+#			.form-group {display: table-row;} 
+#			.selectize-control {margin-bottom: 10px;}"
+#		)
+#	),
+
 	fluidRow(
 		column(3,
+			h5(strong("Chromatogram displayed :")),
 			switchInput(
 				inputId = "input_chromatogram",
 				label = strong("Chromatogram"),
@@ -62,6 +71,7 @@ ui <- bootstrapPage(
 			)
 		),
 		column(3,
+			h5(strong("Intensity :")),
 			switchInput(
 				inputId = "intensity",
 				label = strong("Intensity"),
@@ -69,9 +79,10 @@ ui <- bootstrapPage(
 				offLabel = "Absolute",
 				onLabel = "Relative"
 			)
-                ),
+		),
 		column(3,
 			if (adjusted) {
+				#h5(strong("Adjusted RTime :")), => NOT WORK
 				switchInput(
 					inputId = "adjustedTime",
 					label = strong("Adjusted_Time"),
@@ -81,58 +92,67 @@ ui <- bootstrapPage(
 		),
 		column(2),
 	        column(1,
+			br(),
                         actionButton(
                                 inputId = "draw",
                                 label = "DRAW"
                         )
 		)
 	),
+	br(),
 	fluidRow(
 		column(3,
+			h5(strong("Group displayed :")),
+			selectInput(
+				inputId = "select_group",
+				label = NULL,
+				choices = groups,
+				selected = groups,
+				multiple = TRUE,
+				selectize = TRUE,
+				width = '200px'
+			)
+		),
+		column(3,
+			h5(strong("Color by Group :")),
 			switchInput(
 				inputId = "color_by_group",
 				label = strong("Color_by_Group"),
 				value = FALSE
 			)
 		),
-		column(5,
+		column(6,
 			fluidRow(
-				tags$head(
-					tags$style(
-						type="text/css", 
-						"label.control-label, 
-						.selectize-control.single {display: table-cell; vertical-align: middle; width: 80px;} 
-						.form-group {display: table-row;} 
-						.selectize-control {margin-bottom: 10px;}"
-					)
-				),
 				column(4,
+					h5(strong("Switch to Versus mode :")),
 					switchInput(
 						inputId = "versus",
-						label = strong("Versus_mode"),
+						label = strong("Versus"),
 						value = FALSE
 					)
 				),
-				column(4,
+				column(3,
 					conditionalPanel(
 						condition = "input.versus == true",
+						h5(strong("First Group :")),
 						selectInput(
 							inputId = "group1", 
-							label = "1st Group",
+							label = NULL,
 							choices = groups,
 							width = "180px"
 						)
 					)
 				),
-				column(4,
+				column(3,
                                         conditionalPanel(
                                                 condition = "input.versus == true",
+						h5(strong("Second Group :")),
 						uiOutput("versus_group")
                                         )
-                                )        
+                                ),
+				column(2)
 			)
-		),
-		column(4)
+		)
 	),
 	fluidRow(
 		plotlyOutput('CHROM')
@@ -149,51 +169,36 @@ server <- function(input, output){
 		bpc_chrom_adjusted <- chromBPI_adjusted
 	}
 
-	# Display the select input for others groups
-	output$versus_group <- renderUI({
-		tagList(
-			selectInput(
-				inputId = "group2",
-				label = "2nd Group",
-				choices = subset(groups, !(groups %in% input$group1)),
-				width = "180px"
-			)
-		)
-	})
 
-	# Get reactive values
+	# On-click Draw button action
 	draw_chromato <- reactiveValues(value = 0)
 	observeEvent(input$draw, {
 		draw_chromato$value <- draw_chromato$value + 1
 	}) 
 
-
+	# Chromatogram displayed
         which_chromatogram <- eventReactive(input$draw, {
                 which_chromatogram <- input$input_chromatogram
         })
 
-	col_group <- eventReactive(input$draw, {
-		col_group <- input$color_by_group
+	# Intensity
+	relative_intensity <- eventReactive(input$draw, {
+		relative_intensity <- input$intensity
 	})
 
+	# Adjusted RTime
 	adjusted_time <- eventReactive(input$draw, {
 		adjusted_time <- input$adjustedTime
 	})
 
-	versus_mode <- eventReactive(input$draw, {
-		versus_mode <- input$versus
-	})	
-
-	pos_group <- eventReactive(input$draw, {
-		pos_group <- input$group1
+	# Group displayed
+	selected_groups <- eventReactive(input$draw, {
+		selected_groups <- input$select_group
 	})
 
-	neg_group <- eventReactive(input$draw, {
-		neg_group <- input$group2
-	})
-
-	relative_intensity <- eventReactive(input$draw, {
-		relative_intensity <- input$intensity
+	# Coloration
+	col_group <- eventReactive(input$draw, {
+		col_group <- input$color_by_group
 	})
 
 	color <- eventReactive(input$draw, {
@@ -212,9 +217,33 @@ server <- function(input, output){
                 }
         })
 
+	# Display the select input for others groups
+	output$versus_group <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "group2",
+				label = NULL,
+				choices = subset(groups, !(groups %in% input$group1)),
+				width = "180px"
+			)
+		)
+	})
+
+	versus_mode <- eventReactive(input$draw, {
+		versus_mode <- input$versus
+	})	
+
+	pos_group <- eventReactive(input$draw, {
+		pos_group <- input$group1
+	})
+
+	neg_group <- eventReactive(input$draw, {
+		neg_group <- input$group2
+	})
+
 
 	# Building chromatogram function
-	build_chromato <- function(data, raws, which_chromato, draw_chromato, adjusted, adjusted_time, versus_mode, relative_intensity, color, pos_group, neg_group) {
+	build_chromato <- function(data, raws, which_chromato, draw_chromato, groups_selected, adjusted, adjusted_time, versus_mode, relative_intensity, color, pos_group, neg_group) {
 
                 if (draw_chromato != 0){
 
@@ -263,72 +292,78 @@ server <- function(input, output){
 
                         for ( j in 1:length(groups) ) {
 
-				# Get the samples to display
-                                files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
-                                files_to_get <- samples_to_display%/%(length(groups)*2)
-                                if ( files_in_group < (files_to_get*2) ) {
-					files_to_add <- (files_to_get*2)-files_in_group
-                                        files_to_get <- files_in_group
-                                } else { 
-                                        files_to_get <- files_to_get + files_to_add
-					files_to_add <- 0 
-				}
+				if (groups[j] %in% groups_selected){
 
-                                # Counter initialization
-                                group_file_nb <- 1
+					# Get the samples to display
+	                                files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
+	                                files_to_get <- samples_to_display%/%(length(groups_selected)*2)
+	                                if ( files_in_group < (files_to_get*2) ) {
+						files_to_add <- (files_to_get*2)-files_in_group
+	                                        files_to_get <- files_in_group
+	                                } else { 
+	                                        files_to_get <- files_to_get + files_to_add
+						files_to_add <- 0 
+					}
 
-                                for ( i in 1:length(raws) ) {
-                                        #Check if file is in group[j]
-                                        if ( data@phenoData@data$sample_group[i] == groups[j] ) {
-		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
-						# In case of versus mode
-		                                if (versus_mode) {
-		                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
+	                                # Counter initialization
+	                                group_file_nb <- 1
+	
+	                                for ( i in 1:length(raws) ) {
+	                                        #Check if file is in group[j]
+	                                        if ( data@phenoData@data$sample_group[i] == groups[j] ) {
+			                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+							# In case of versus mode
+			                                if (versus_mode) {
+			                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
+					                                intens <- chrom[[index]]@intensity
+			                                        } else if (data@phenoData@data$sample_group[index] %in% neg_group) {
+					                                intens <- -chrom[[index]]@intensity
+			                                        } else {
+			                                                intens <- 0
+			                                        }
+			                                } else {
 				                                intens <- chrom[[index]]@intensity
-		                                        } else if (data@phenoData@data$sample_group[index] %in% neg_group) {
-				                                intens <- -chrom[[index]]@intensity
-		                                        } else {
-		                                                intens <- 0
-		                                        }
-		                                } else {
-			                                intens <- chrom[[index]]@intensity
-		                                }
+			                                }
 
-						# In case of relative intensity (POURQUOI BPC EN PREMIER ???)
-						if (relative_intensity) {
-							if(title=="BPC"){
-								# Enlever les blancs ou ne pas les afficher?
-								bpi_max <- max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
-								intens <- (chrom[[index]]@intensity*100)/bpi_max
-							} else {
-								intens <- chrom[[index]]@intensity
+							# In case of relative intensity (POURQUOI BPC EN PREMIER ???)
+							if (relative_intensity) {
+								if(title=="BPC"){
+									# Enlever les blancs ou ne pas les afficher?
+									bpi_max <- max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
+									intens <- (chrom[[index]]@intensity*100)/bpi_max
+								} else {
+									intens <- chrom[[index]]@intensity
+								}
 							}
-						}
 
-						# Building the chromatogram
-                                                if ( group_file_nb <= files_to_get ) {
-	                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-	                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-	                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-	                                                )
-                                                } else if ( group_file_nb > (files_in_group - files_to_get) ) {
-	                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-	                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-	                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-	                                                )
-                                                } else {
-	                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-	                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i], visible="legendonly",
-	                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-	                                                )
-                                                }
+							# Building the chromatogram
+	                                                if ( group_file_nb <= files_to_get ) {
+		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+		                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                                                )
+	                                                } else if ( group_file_nb > (files_in_group - files_to_get) ) {
+		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
+		                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                                                )
+	                                                } else {
+		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i], visible="legendonly",
+		                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                                                )
+	                                                }
 
-                                                group_file_nb <- group_file_nb + 1
-                                        }
-                                }
+	                                                group_file_nb <- group_file_nb + 1
+	                                        }
+	                                }
+				}
                         }
 
                 } else {
+
+			write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+			write("Initialisation", file="/import/times.log", append=TRUE)
 
 			# Initialize a blank chromatogram
                         displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
@@ -343,6 +378,10 @@ server <- function(input, output){
 
 			# Initialize a variable in case of little group of samples
 			files_to_add <- 0
+
+			write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+			write("Parcours de chaque groupe", file="/import/times.log", append=TRUE)
+
 
 			for ( j in 1:length(groups) ) {
 
@@ -359,6 +398,8 @@ server <- function(input, output){
 
                                 # Counter initialization
 				group_file_nb <- 1
+
+				write("Parcours de chaque echantillon", file="/import/times.log", append=TRUE)
 
 				for ( i in 1:length(raws) ) {
 					#Check if file is in group[j]
@@ -387,7 +428,14 @@ server <- function(input, output){
 						group_file_nb <- group_file_nb + 1
 					}
 				}
+
+				write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+
 			}
+
+			write("Fin de parcours des groupes", file="/import/times.log", append=TRUE)
+			write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+
                }
 
 		return(displayed_chromatogram)
@@ -398,13 +446,16 @@ server <- function(input, output){
 		# DEBUG MODE
 		write("------------", file="/import/times.log", append=TRUE)
 		write("Building Chromatogram", file="/import/times.log", append=TRUE)
+		write("------------", file="/import/times.log", append=TRUE)
 		#-----------
 
-		displayed_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
+		displayed_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
 
 		#-----------
 		# DEBUG MODE  
+		write("------------", file="/import/times.log", append=TRUE)
 		write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
+		write("------------", file="/import/times.log", append=TRUE)
 		#-----------
 
 		return(displayed_chromatogram)
