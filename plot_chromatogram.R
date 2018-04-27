@@ -24,6 +24,13 @@ write("Get RSession and Import files", file="/import/times.log", append=TRUE)
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 raw_files <- basename(rownames(xdata@phenoData@data))
 
+## Settings
+# Graph settings
+height <- "600"
+# Samples number to display
+samples_to_display <- 50
+
+
 # Get group names sorted by croissant order
 groups <- names(sort(table(xdata@phenoData@data$sample_group)))
 # AJOUTER GROUP AVEC 1ST LETTRE MAJ POUR LES OPTIONS
@@ -36,9 +43,6 @@ adjusted <- hasAdjustedRtime(xdata)
 
 # Making a color palette
 default_palette <- rainbow(length(raw_files))
-
-# Samples number to display
-samples_to_display <- 50
 
 #----------
 #DEBUG MODE
@@ -60,6 +64,7 @@ ui <- bootstrapPage(
 #	),
 
 	fluidRow(
+		style = 'margin:0px',
 		column(3,
 			h5(strong("Chromatogram displayed :")),
 			switchInput(
@@ -101,6 +106,7 @@ ui <- bootstrapPage(
 	),
 	br(),
 	fluidRow(
+		style = 'margin:0px',
 		column(3,
 			h5(strong("Group displayed :")),
 			selectInput(
@@ -155,7 +161,18 @@ ui <- bootstrapPage(
 		)
 	),
 	fluidRow(
+		style = paste('margin:0px; height:', height, 'px', sep=''),
 		plotlyOutput('CHROM')
+	),
+	fluidRow(
+		column(10),
+		column(2,
+			br(),
+                        actionButton(
+                                inputId = "export",
+                                label = "EXPORT"
+                        )
+		)
 	)
 )
 
@@ -255,7 +272,7 @@ server <- function(input, output){
 
 			# Initialize a blank chromatogram
 	                displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette()) %>%
-	                        layout(title=title, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+	                        layout(title=title, height=height, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
 	                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
 	                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
@@ -325,13 +342,14 @@ server <- function(input, output){
 				                                intens <- chrom[[index]]@intensity
 			                                }
 
-							# In case of relative intensity (POURQUOI BPC EN PREMIER ???)
+							# In case of relative intensity
 							if (relative_intensity) {
 								if(title=="BPC"){
 									# Enlever les blancs ou ne pas les afficher?
 									bpi_max <- max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
 									intens <- (chrom[[index]]@intensity*100)/bpi_max
 								} else {
+									# MAX NOT WORK
 									intens <- chrom[[index]]@intensity
 								}
 							}
@@ -367,7 +385,7 @@ server <- function(input, output){
 
 			# Initialize a blank chromatogram
                         displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
-                                layout(title="BPC", xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+                                layout(title="BPC", height=height, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
                                 config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
                                         modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
