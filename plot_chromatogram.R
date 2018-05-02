@@ -13,6 +13,7 @@ library(xcms)
 library(plotly)
 library(RColorBrewer)
 library(stringr)
+library(webshot)
 
 #-----------
 # DEBUG MODE
@@ -33,7 +34,7 @@ samples_to_display <- 50
 
 # Get group names sorted by croissant order
 groups <- names(sort(table(xdata@phenoData@data$sample_group)))
-# AJOUTER GROUP AVEC 1ST LETTRE MAJ POUR LES OPTIONS
+# AJOUTER GROUPE AVEC 1ST LETTRE MAJ POUR LES OPTIONS
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
 #gx_get(raw_files, identifier_type='name')
@@ -51,17 +52,6 @@ write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 
 
 ui <- bootstrapPage(
-
-# Used to modify the CSS
-#	tags$head(
-#		tags$style(
-#			type="text/css", 
-#			"label.control-label, 
-#			.selectize-control.single {display: table-cell; vertical-align: middle; width: 80px;} 
-#			.form-group {display: table-row;} 
-#			.selectize-control {margin-bottom: 10px;}"
-#		)
-#	),
 
 	fluidRow(
 		style = 'margin:0px',
@@ -87,7 +77,7 @@ ui <- bootstrapPage(
 		),
 		column(3,
 			if (adjusted) {
-				#h5(strong("Adjusted RTime :")), => NOT WORK
+				#h5(strong("Adjusted RTime :")), ===>>> NOT WORK
 				switchInput(
 					inputId = "adjustedTime",
 					label = strong("Adjusted_Time"),
@@ -329,29 +319,21 @@ server <- function(input, output){
 	                                        #Check if file is in group[j]
 	                                        if ( data@phenoData@data$sample_group[i] == groups[j] ) {
 			                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+			                                intens <- chrom[[index]]@intensity
+							intens_max <- max(chrom[[index]]@intensity)
+
 							# In case of versus mode
 			                                if (versus_mode) {
-			                                        if (data@phenoData@data$sample_group[index] %in% pos_group) {
-					                                intens <- chrom[[index]]@intensity
-			                                        } else if (data@phenoData@data$sample_group[index] %in% neg_group) {
-					                                intens <- -chrom[[index]]@intensity
-			                                        } else {
+			                                        if (data@phenoData@data$sample_group[index] %in% neg_group) {
+					                                intens <- -intens
+			                                        } else if ( !(data@phenoData@data$sample_group[index] %in% neg_group) && !(data@phenoData@data$sample_group[index] %in% pos_group) ) {
 			                                                intens <- 0
 			                                        }
-			                                } else {
-				                                intens <- chrom[[index]]@intensity
 			                                }
 
 							# In case of relative intensity
 							if (relative_intensity) {
-								if(title=="BPC"){
-									# Enlever les blancs ou ne pas les afficher?
-									bpi_max <- max(data@featureData@data$basePeakIntensity[data@featureData@data$fileIdx==i])
-									intens <- (chrom[[index]]@intensity*100)/bpi_max
-								} else {
-									# MAX NOT WORK
-									intens <- chrom[[index]]@intensity
-								}
+								intens <- intens*100/intens_max
 							}
 
 							# Building the chromatogram
@@ -459,6 +441,10 @@ server <- function(input, output){
 		return(displayed_chromatogram)
 	}
 
+	displayed_chromatogram <- reactive({
+		reactive_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
+	})		
+
 	output$CHROM <- renderPlotly({
 		#-----------
 		# DEBUG MODE
@@ -467,7 +453,7 @@ server <- function(input, output){
 		write("------------", file="/import/times.log", append=TRUE)
 		#-----------
 
-		displayed_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
+		graph <- displayed_chromatogram()
 
 		#-----------
 		# DEBUG MODE  
@@ -476,8 +462,34 @@ server <- function(input, output){
 		write("------------", file="/import/times.log", append=TRUE)
 		#-----------
 
-		return(displayed_chromatogram)
+		return(graph)
 	})
+
+
+	#output$export <- downloadHandler(
+	#	# File name
+	#	filename <- 'plot.png',
+	#	# Content
+	#	content = function(file){
+	#		# Create plot
+	#		export(p = displayed_chromatogram(), file = 'tempPlot.png')
+	#		# Hand over the file
+	#		file.copy('tempPlot.png',file)
+	#	}
+	#)
+
+	#observeEvent(input$export, {
+	#	tmpFile <- tempfile(pattern = "chrom_", tmpdir = tempdir(), fileext = ".png")
+	#	export(displayed_chromatogram(), file = tmpFile)
+	#	browseURL(tmpFile)
+
+	#	png(filename="plot.png")
+	#	displayed_chromatogram()
+	#	dev.off()
+	#	path <- getwd()
+	#	file <- paste0(path, "/", "plot.png")
+	#	gx_put(tmpFile)
+	#})
 
 }
 
