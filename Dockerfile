@@ -1,7 +1,7 @@
 FROM quay.io/workflow4metabolomics/gie-shiny:latest
 
 # Installing packages needed for check traffic on the container and kill if none
-RUN apt-get update
+RUN apt-get update --fix-missing
 RUN apt-get install --no-install-recommends -y libnetcdf-dev
 
 # Install R packages
