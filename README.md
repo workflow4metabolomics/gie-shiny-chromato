@@ -8,3 +8,7 @@ This repository makes possible to run a Shiny application in a Galaxy Interactiv
 
 * Based on the work of Sébastien Hutinet with his [Shiny App](https://github.com/0driveshaft0/shiny_TIC_visualization).
 * Using the [Docker Shiny Container](https://github.com/workflow4metabolomics/gie-shiny) to build Shiny GIE.
+
+## Visualization
+
+[gie-shiny-chromatogram](https://raw.githubusercontent.com/workflow4metabolomics/gie-shiny-pca/master/static/images/gie-shiny-chromatogram.png)

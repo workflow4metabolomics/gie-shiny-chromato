@@ -54,7 +54,7 @@ write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 ui <- bootstrapPage(
 
 	fluidRow(
-		style = 'margin:0px',
+		includeCSS("styles.css"),
 		column(3,
 			h5(strong("Chromatogram displayed :")),
 			switchInput(

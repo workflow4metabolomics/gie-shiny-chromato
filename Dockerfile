@@ -15,4 +15,5 @@ RUN rm /srv/shiny-server/index.html
 RUN mkdir -p /srv/shiny-server/samples/chromato_visu
 RUN chmod -R 755 /srv/shiny-server/samples/chromato_visu
 RUN chown shiny.shiny /srv/shiny-server/samples/chromato_visu
-COPY ./plot_chromatogram.R /srv/shiny-server/samples/chromato_visu/app.R
+COPY ./app.R /srv/shiny-server/samples/chromato_visu/app.R
+COPY ./static/css/styles.css /srv/shiny-server/samples/chromato_visu/styles.css
