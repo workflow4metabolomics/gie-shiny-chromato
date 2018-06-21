@@ -11,4 +11,4 @@ This repository makes possible to run a Shiny application in a Galaxy Interactiv
 
 ## Visualization
 
-[gie-shiny-chromatogram](https://raw.githubusercontent.com/workflow4metabolomics/gie-shiny-pca/master/static/images/gie-shiny-chromatogram.png)
+![gie-shiny-chromato](https://github.com/workflow4metabolomics/gie-shiny-chromato/blob/master/static/images/gie-shiny-chromato.png)
