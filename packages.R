@@ -7,5 +7,5 @@ update.packages(ask=FALSE, checkBuilt=TRUE)
 install.packages(c('plotly', 'stringr', 'RColorBrewer', 'shinyjs', 'shinyWidgets', 'webshot'))
 
 # Install biocLite packages
-source("https://bioconductor.org/biocLite.R")
+source("http://bioconductor.org/biocLite.R")
 biocLite("xcms")
