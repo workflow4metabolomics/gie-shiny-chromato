@@ -340,17 +340,17 @@ server <- function(input, output){
 	                                                if ( group_file_nb <= files_to_get ) {
 		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
 		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-		                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                                                        text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 		                                                )
 	                                                } else if ( group_file_nb > (files_in_group - files_to_get) ) {
 		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
 		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-		                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                                                        text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 		                                                )
 	                                                } else {
 		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
 		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i], visible="legendonly",
-		                                                        text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                                                        text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 		                                                )
 	                                                }
 
@@ -411,17 +411,17 @@ server <- function(input, output){
 						if ( group_file_nb <= files_to_get ) {
                                                         displayed_chromatogram <- displayed_chromatogram %>% add_lines(
                                                                 x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                                                text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+                                                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
                                                         )
 						} else if ( group_file_nb > (files_in_group - files_to_get) ) {
                                                         displayed_chromatogram <- displayed_chromatogram %>% add_lines(
                                                                 x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                                                text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+                                                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
                                                         )
 						} else {
 				                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
 				                                x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
-				                                text=paste('Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+				                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 				                        )
 						}
 

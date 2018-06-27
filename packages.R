@@ -1,3 +1,6 @@
+source("https://bioconductor.org/biocLite.R")
+biocLite("xcms")
+
 # Set default repo from erasche/docker-rstudio-notebook
 # http://stackoverflow.com/questions/8475102/set-default-cran-mirror-permanent-in-r
 options(repos=structure(c(CRAN="https://cran.rstudio.com/")))
@@ -6,7 +9,3 @@ update.packages(ask=FALSE, checkBuilt=TRUE)
 # Install some packages
 install.packages(c('plotly', 'stringr', 'RColorBrewer', 'shinyjs', 'shinyWidgets', 'webshot'))
 
-# Make possible to use biocLite
-source("https://bioconductor.org/biocLite.R")
-# Install xcms
-biocLite("xcms")
