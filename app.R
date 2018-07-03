@@ -23,7 +23,7 @@ write("Get RSession and Import files", file="/import/times.log", append=TRUE)
 
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
-raw_files <- basename(rownames(xdata@phenoData@data))
+raw_files <- xdata@phenoData@data$sample_name
 
 ## Settings
 # Graph settings
@@ -31,10 +31,9 @@ height <- "600"
 # Samples number to display
 samples_to_display <- 50
 
-
 # Get group names sorted by croissant order
-groups <- names(sort(table(xdata@phenoData@data$sample_group)))
-# AJOUTER GROUPE AVEC 1ST LETTRE MAJ POUR LES OPTIONS
+groups <- sort(names(table(xdata@phenoData@data$sample_group)))
+samples <- sort(names(table(raw_files)))
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
 #gx_get(raw_files, identifier_type='name')
@@ -43,7 +42,7 @@ groups <- names(sort(table(xdata@phenoData@data$sample_group)))
 adjusted <- hasAdjustedRtime(xdata)
 
 # Making a color palette
-default_palette <- rainbow(length(raw_files))
+default_palette <- rainbow(length(samples)) #raw_files
 
 #----------
 #DEBUG MODE
@@ -77,26 +76,20 @@ ui <- bootstrapPage(
 		),
 		column(3,
 			if (adjusted) {
-				#h5(strong("Adjusted RTime :")), ===>>> NOT WORK
-				switchInput(
-					inputId = "adjustedTime",
-					label = strong("Adjusted_Time"),
-					value = FALSE
-				)
+				uiOutput("display_adjusted")
 			}
 		),
 		column(2),
 	        column(1,
 			br(),
-                        actionButton(
-                                inputId = "draw",
-                                label = "DRAW"
-                        )
+            actionButton(
+                inputId = "draw",
+                label = "DRAW",
+                class = "btn-primary"
+            )
 		)
 	),
-	br(),
 	fluidRow(
-		style = 'margin:0px',
 		column(3,
 			h5(strong("Group displayed :")),
 			selectInput(
@@ -117,51 +110,90 @@ ui <- bootstrapPage(
 				value = FALSE
 			)
 		),
+		column(6)
+	),
+	fluidRow(
+		style = "height : 110px",
+		column(3,
+			h5(strong("Versus mode :")),
+			switchInput(
+				inputId = "versus",
+				label = strong("Versus"),
+				value = FALSE
+			)
+		),
+		column(3,
+			conditionalPanel(
+				condition = "input.versus == true",
+				h5(strong("Group or Sample :")),
+				switchInput(
+					inputId = "versus_by",
+					label = strong("Versus"),
+					value = FALSE,
+					offLabel = "Group",
+					onLabel = "Sample"
+				)
+			)
+		),
 		column(6,
 			fluidRow(
-				column(4,
-					h5(strong("Switch to Versus mode :")),
-					switchInput(
-						inputId = "versus",
-						label = strong("Versus"),
-						value = FALSE
+				conditionalPanel(
+					condition = "input.versus == true && input.versus_by == false",
+					column(5,
+						h5(strong("Upper Group :")),
+						uiOutput("upper_group")
 					)
 				),
-				column(3,
-					conditionalPanel(
-						condition = "input.versus == true",
-						h5(strong("First Group :")),
-						selectInput(
-							inputId = "group1", 
-							label = NULL,
-							choices = groups,
-							width = "180px"
-						)
+                conditionalPanel(
+                    condition = "input.versus == true && input.versus_by == false",
+                    column(5,
+						h5(strong("Under Group :")),
+						uiOutput("under_group")
+                    )
+                ),
+                conditionalPanel(
+					condition = "input.versus == true && input.versus_by == true",					
+					column(5,
+						h5(strong("Upper Sample(s) :")),
+						uiOutput("upper_sample")
 					)
 				),
-				column(3,
-                                        conditionalPanel(
-                                                condition = "input.versus == true",
-						h5(strong("Second Group :")),
-						uiOutput("versus_group")
-                                        )
-                                ),
+				conditionalPanel(
+                    condition = "input.versus == true && input.versus_by == true",
+					column(5,				
+						h5(strong("Under Sample(s) :")),
+						uiOutput("under_sample")
+                    )
+				),
 				column(2)
 			)
 		)
 	),
 	fluidRow(
-		style = paste('margin:0px; height:', height, 'px', sep=''),
-		plotlyOutput('CHROM')
+		style = paste("height:", height, "px", sep=""), 
+		column(2,
+			style = "height : 100%",
+			h5(strong("Sample List :")),
+			checkboxGroupInput(
+				inputId = "select_sample",
+				label = NULL,
+				choices = samples,
+				selected = samples,
+				width = '200px'
+			)
+		),
+		column(10,
+			plotlyOutput('CHROM')
+		)
 	),
 	fluidRow(
 		column(10),
 		column(2,
-			br(),
-                        actionButton(
-                                inputId = "export",
-                                label = "EXPORT"
-                        )
+            actionButton(
+            	icon = icon("export", lib = "glyphicon"),
+                inputId = "export",
+                label = "EXPORT"
+            )
 		)
 	)
 )
@@ -184,13 +216,25 @@ server <- function(input, output){
 	}) 
 
 	# Chromatogram displayed
-        which_chromatogram <- eventReactive(input$draw, {
-                which_chromatogram <- input$input_chromatogram
-        })
+    which_chromatogram <- eventReactive(input$draw, {
+        which_chromatogram <- input$input_chromatogram
+    })
 
 	# Intensity
 	relative_intensity <- eventReactive(input$draw, {
 		relative_intensity <- input$intensity
+	})
+
+	# Display Adjusted title
+	output$display_adjusted <- renderUI({
+		tagList(
+			h5(strong("Adjusted RTime :")),
+			switchInput(
+				inputId = "adjustedTime",
+				label = strong("Adjusted"),
+				value = FALSE
+			)	
+		)
 	})
 
 	# Adjusted RTime
@@ -209,28 +253,66 @@ server <- function(input, output){
 	})
 
 	color <- eventReactive(input$draw, {
-	        if (col_group()){
+	    if (col_group()){
 			color <- xdata@phenoData@data$sample_group
-                } else {
-                        color <- xdata@phenoData@data$sample_name
+        } else {
+        	color <- xdata@phenoData@data$sample_name
 		}
 	})
 
 	palette <- eventReactive(input$draw, {
-                if (col_group()){
+        if (col_group()){
 			palette <- brewer.pal(length(xdata@phenoData@data$sample_group), "Set1")
-                } else {
+        } else {
 			palette <- rainbow(length(raw_files))
-                }
-        })
+			#palette <- rainbow(length(samples))
+        }
+    })
 
-	# Display the select input for others groups
-	output$versus_group <- renderUI({
+	output$upper_group <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "group1",
+				label = NULL,
+				choices = subset(groups, (groups %in% input$select_group)),
+				width = "180px"
+			)	
+		)
+	})
+
+	output$under_group <- renderUI({
 		tagList(
 			selectInput(
 				inputId = "group2",
 				label = NULL,
-				choices = subset(groups, !(groups %in% input$group1)),
+				choices = subset(input$select_group, !(input$select_group %in% input$group1)),
+				width = "180px"
+			)
+		)
+	})
+
+	# TODO : Selectize TRUE with limited nb of sample or FALSE (ctrl + choice) ...
+	output$upper_sample <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "sample1",
+				label = NULL,
+				choices = subset(input$select_sample, (samples %in% input$select_sample)),
+				multiple = TRUE,
+				selectize = FALSE,
+				width = "180px"
+			)	
+		)
+	})
+
+	output$under_sample <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "sample2",
+				label = NULL,
+				choices = subset(input$select_sample, !(input$select_sample %in% input$sample1)),
+				multiple = TRUE,
+				selectize = FALSE,
 				width = "180px"
 			)
 		)
@@ -252,7 +334,7 @@ server <- function(input, output){
 	# Building chromatogram function
 	build_chromato <- function(data, raws, which_chromato, draw_chromato, groups_selected, adjusted, adjusted_time, versus_mode, relative_intensity, color, pos_group, neg_group) {
 
-                if (draw_chromato != 0){
+        if (draw_chromato != 0){
 
 			if (which_chromato) {
 				title <- "TIC"
@@ -261,75 +343,74 @@ server <- function(input, output){
 			}
 
 			# Initialize a blank chromatogram
-	                displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette()) %>%
-	                        layout(title=title, height=height, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
-	                        config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
-	                                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
+	        displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=palette()) %>%
+	            layout(title=title, height=height, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+	            config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
+	            modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
-	                if(is.null(raws)) return(displayed_chromatogram)
-	                else if(!length(raws)) return(displayed_chromatogram)
+	        if(is.null(raws)) return(displayed_chromatogram)
+	        else if(!length(raws)) return(displayed_chromatogram)
 
-	                # According to Adjusted Time
+	        # According to Adjusted Time
 			# If retcor has been done
-	                if (adjusted) {
+	        if (adjusted) {
 				# If Adjusted Option is TRUE
-	                        if (adjusted_time) {
+	            if (adjusted_time) {
 					if (title=="TIC") {
-		                                chrom <- tic_chrom_adjusted
+		                chrom <- tic_chrom_adjusted
 					} else if (title=="BPC") {
-		                                chrom <- bpc_chrom_adjusted
+		                chrom <- bpc_chrom_adjusted
 					}
-	                        } else {
+	            } else {
 					if (title=="TIC") {
-		                                chrom <- tic_chrom
+		                chrom <- tic_chrom
 					} else if (title=="BPC") {
-		                                chrom <- bpc_chrom
+		                chrom <- bpc_chrom
 					}
 				}
-	                } else {
+	        } else {
 				if (title=="TIC") {
-	                                chrom <- tic_chrom
+	                chrom <- tic_chrom
 				} else if (title=="BPC") {
-	                                chrom <- bpc_chrom
+	                chrom <- bpc_chrom
 				}
-	                }
+	        }
 
 			# Initialize a variable in case of little group of samples
 			files_to_add <- 0
 
-                        for ( j in 1:length(groups) ) {
-
+            for ( j in 1:length(groups) ) {
 				if (groups[j] %in% groups_selected){
 
 					# Get the samples to display
-	                                files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
-	                                files_to_get <- samples_to_display%/%(length(groups_selected)*2)
-	                                if ( files_in_group < (files_to_get*2) ) {
+	                files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
+	                files_to_get <- samples_to_display%/%(length(groups_selected)*2)
+	                if ( files_in_group < (files_to_get*2) ) {
 						files_to_add <- (files_to_get*2)-files_in_group
-	                                        files_to_get <- files_in_group
-	                                } else { 
-	                                        files_to_get <- files_to_get + files_to_add
+	                    files_to_get <- files_in_group
+	                } else { 
+	                    files_to_get <- files_to_get + files_to_add
 						files_to_add <- 0 
 					}
 
-	                                # Counter initialization
-	                                group_file_nb <- 1
+	                # Counter initialization
+	                group_file_nb <- 1
 	
-	                                for ( i in 1:length(raws) ) {
-	                                        #Check if file is in group[j]
-	                                        if ( data@phenoData@data$sample_group[i] == groups[j] ) {
-			                                index <- which(basename(rownames(phenoData(data))) == raws[i])
-			                                intens <- chrom[[index]]@intensity
+	                for ( i in 1:length(raws) ) {
+	                    #Check if file is in group[j]
+	                    if ( data@phenoData@data$sample_group[i] == groups[j] ) {
+			                index <- which(data@phenoData@data$sample_name == raws[i])
+			                intens <- chrom[[index]]@intensity
 							intens_max <- max(chrom[[index]]@intensity)
 
 							# In case of versus mode
-			                                if (versus_mode) {
-			                                        if (data@phenoData@data$sample_group[index] %in% neg_group) {
-					                                intens <- -intens
-			                                        } else if ( !(data@phenoData@data$sample_group[index] %in% neg_group) && !(data@phenoData@data$sample_group[index] %in% pos_group) ) {
-			                                                intens <- 0
-			                                        }
-			                                }
+			                if (versus_mode) {
+			                    if (data@phenoData@data$sample_group[index] %in% neg_group) {
+					                intens <- -intens
+			                    } else if ( !(data@phenoData@data$sample_group[index] %in% neg_group) && !(data@phenoData@data$sample_group[index] %in% pos_group) ) {
+			                        intens <- 0
+			                	}
+			                }
 
 							# In case of relative intensity
 							if (relative_intensity) {
@@ -337,42 +418,42 @@ server <- function(input, output){
 							}
 
 							# Building the chromatogram
-	                                                if ( group_file_nb <= files_to_get ) {
-		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-		                                                        text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-		                                                )
-	                                                } else if ( group_file_nb > (files_in_group - files_to_get) ) {
-		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i],
-		                                                        text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-		                                                )
-	                                                } else {
-		                                                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                                                        x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=color()[i], visible="legendonly",
-		                                                        text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-		                                                )
-	                                                }
+	                        if ( group_file_nb <= files_to_get ) {
+		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                            x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=color()[i],
+		                            text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                        )
+	                        } else if ( group_file_nb > (files_in_group - files_to_get) ) {
+		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                            x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=color()[i],
+		                            text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                        )
+	                        } else {
+		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                            x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=color()[i], visible="legendonly",
+		                            text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                        )
+	                        }
 
-	                                                group_file_nb <- group_file_nb + 1
-	                                        }
-	                                }
+	                        group_file_nb <- group_file_nb + 1
+	                    }
+	                }
 				}
-                        }
+            }
 
-                } else {
+        } else {
 
 			write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 			write("Initialisation", file="/import/times.log", append=TRUE)
 
 			# Initialize a blank chromatogram
-                        displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
-                                layout(title="BPC", height=height, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
-                                config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
-                                        modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
+            displayed_chromatogram <- plot_ly(source='alignmentChromato', type='scatter', mode='markers', colors=default_palette) %>%
+                layout(title="BPC", height=height, xaxis=list(title='Retention time (min)'), yaxis=list(title='Intensity'), showlegend=TRUE) %>%
+                config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
+                modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
-                        if(is.null(raws)) return(displayed_chromatogram)
-                        else if(!length(raws)) return(displayed_chromatogram)
+            if(is.null(raws)) return(displayed_chromatogram)
+            else if(!length(raws)) return(displayed_chromatogram)
 
 			chrom <- bpc_chrom
 
@@ -404,25 +485,25 @@ server <- function(input, output){
 				for ( i in 1:length(raws) ) {
 					#Check if file is in group[j]
 					if ( data@phenoData@data$sample_group[i] == groups[j] ) {
-		                                index <- which(basename(rownames(phenoData(data))) == raws[i])
+		                index <- which(data@phenoData@data$sample_name == raws[i])
 						intens <- chrom[[index]]@intensity
 
 						# Building the chromatogram
 						if ( group_file_nb <= files_to_get ) {
-                                                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-                                                                x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-                                                        )
+                            displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+                                x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+                            )
 						} else if ( group_file_nb > (files_in_group - files_to_get) ) {
-                                                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-                                                                x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-                                                        )
+                            displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+                                x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=data@phenoData@data$sample_name[i],
+                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+                            )
 						} else {
-				                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-				                                x=chrom[[index]]@rtime/60, y=intens, name=basename(raw_files[i]), hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
-				                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-				                        )
+				            displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+				                x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
+				                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+				            )
 						}
 
 						group_file_nb <- group_file_nb + 1
@@ -436,14 +517,15 @@ server <- function(input, output){
 			write("Fin de parcours des groupes", file="/import/times.log", append=TRUE)
 			write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 
-               }
+        }
 
 		return(displayed_chromatogram)
 	}
 
 	displayed_chromatogram <- reactive({
 		reactive_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
-	})		
+	})	
+	#raw_files	
 
 	output$CHROM <- renderPlotly({
 		#-----------

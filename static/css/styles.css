@@ -1,4 +1,30 @@
+h5 {
+	margin-bottom: 5px;
+	margin-top: 5px;
+}
 .row {
-        height : 100%;
-        margin : 0px
+	height: 100%;
+	margin: 0px
+}
+.col {
+	height: 100%
+}
+.form-group {
+    margin-bottom: 0px;
+}
+.selectize-control {
+    margin-bottom: 0px;
+}
+.checkbox {
+	direction: ltr;
+}
+#display_adjusted {
+	padding-left: 15px
+}
+#select_sample {
+	overflow-y: scroll;
+    /*direction : rtl;*/
+	height: 100%;
+	border-width: 1px;
+	border-color: black;
 }
