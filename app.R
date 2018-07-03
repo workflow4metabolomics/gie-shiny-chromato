@@ -23,7 +23,8 @@ write("Get RSession and Import files", file="/import/times.log", append=TRUE)
 
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
-raw_files <- xdata@phenoData@data$sample_name
+raw_names <- xdata@phenoData@data$sample_name
+raw_group <- xdata@phenoData@data$sample_group
 
 ## Settings
 # Graph settings
@@ -31,18 +32,17 @@ height <- "600"
 # Samples number to display
 samples_to_display <- 50
 
-# Get group names sorted by croissant order
-groups <- sort(names(table(xdata@phenoData@data$sample_group)))
-samples <- sort(names(table(raw_files)))
+# Get group names sorted
+groups <- sort(names(table(raw_group)))
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
-#gx_get(raw_files, identifier_type='name')
+#gx_get(raw_names, identifier_type='name')
 
 # In case of adjusted raws (retcor)
 adjusted <- hasAdjustedRtime(xdata)
 
 # Making a color palette
-default_palette <- rainbow(length(samples)) #raw_files
+default_palette <- rainbow(length(raw_names))
 
 #----------
 #DEBUG MODE
@@ -174,13 +174,7 @@ ui <- bootstrapPage(
 		column(2,
 			style = "height : 100%",
 			h5(strong("Sample List :")),
-			checkboxGroupInput(
-				inputId = "select_sample",
-				label = NULL,
-				choices = samples,
-				selected = samples,
-				width = '200px'
-			)
+			uiOutput("sample_list")
 		),
 		column(10,
 			plotlyOutput('CHROM')
@@ -254,18 +248,17 @@ server <- function(input, output){
 
 	color <- eventReactive(input$draw, {
 	    if (col_group()){
-			color <- xdata@phenoData@data$sample_group
+			color <- raw_group
         } else {
-        	color <- xdata@phenoData@data$sample_name
+        	color <- raw_names
 		}
 	})
 
 	palette <- eventReactive(input$draw, {
         if (col_group()){
-			palette <- brewer.pal(length(xdata@phenoData@data$sample_group), "Set1")
+			palette <- brewer.pal(length(raw_group), "Set1")
         } else {
-			palette <- rainbow(length(raw_files))
-			#palette <- rainbow(length(samples))
+			palette <- rainbow(length(raw_names))
         }
     })
 
@@ -297,7 +290,7 @@ server <- function(input, output){
 			selectInput(
 				inputId = "sample1",
 				label = NULL,
-				choices = subset(input$select_sample, (samples %in% input$select_sample)),
+				choices = input$select_sample,
 				multiple = TRUE,
 				selectize = FALSE,
 				width = "180px"
@@ -320,7 +313,11 @@ server <- function(input, output){
 
 	versus_mode <- eventReactive(input$draw, {
 		versus_mode <- input$versus
-	})	
+	})
+
+	versus_by <- eventReactive(input$draw, {
+		versus_by <- input$versus_by
+	})
 
 	pos_group <- eventReactive(input$draw, {
 		pos_group <- input$group1
@@ -330,9 +327,28 @@ server <- function(input, output){
 		neg_group <- input$group2
 	})
 
+	pos_sample <- eventReactive(input$draw, {
+		pos_sample <- input$sample1
+	})
+
+	neg_sample <- eventReactive(input$draw, {
+		neg_sample <- input$sample2
+	})
+
+	output$sample_list <- renderUI({
+		tagList(
+			checkboxGroupInput(
+				inputId = "select_sample",
+				label = NULL,
+				choices = sort(subset(raw_names, (raw_group %in% input$select_group))),
+				selected = sort(subset(raw_names, (raw_group %in% input$select_group))),
+				width = '200px'
+			)
+		)
+	})
 
 	# Building chromatogram function
-	build_chromato <- function(data, raws, which_chromato, draw_chromato, groups_selected, adjusted, adjusted_time, versus_mode, relative_intensity, color, pos_group, neg_group) {
+	build_chromato <- function(raw_names, raw_group, which_chromato, draw_chromato, groups_selected, adjusted, adjusted_time, relative_intensity, color, versus_mode, versus_by, pos_group, neg_group, pos_sample, neg_sample) {
 
         if (draw_chromato != 0){
 
@@ -348,8 +364,8 @@ server <- function(input, output){
 	            config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
 	            modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
-	        if(is.null(raws)) return(displayed_chromatogram)
-	        else if(!length(raws)) return(displayed_chromatogram)
+	        if(is.null(raw_names)) return(displayed_chromatogram)
+	        else if(!length(raw_names)) return(displayed_chromatogram)
 
 	        # According to Adjusted Time
 			# If retcor has been done
@@ -383,7 +399,7 @@ server <- function(input, output){
 				if (groups[j] %in% groups_selected){
 
 					# Get the samples to display
-	                files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
+	                files_in_group <- length(raw_names[raw_group == groups[j]])
 	                files_to_get <- samples_to_display%/%(length(groups_selected)*2)
 	                if ( files_in_group < (files_to_get*2) ) {
 						files_to_add <- (files_to_get*2)-files_in_group
@@ -396,20 +412,28 @@ server <- function(input, output){
 	                # Counter initialization
 	                group_file_nb <- 1
 	
-	                for ( i in 1:length(raws) ) {
+	                for ( i in 1:length(raw_names) ) {
 	                    #Check if file is in group[j]
-	                    if ( data@phenoData@data$sample_group[i] == groups[j] ) {
-			                index <- which(data@phenoData@data$sample_name == raws[i])
+	                    if ( raw_group[i] == groups[j] ) {
+			                index <- which(raw_names == raw_names[i])
 			                intens <- chrom[[index]]@intensity
 							intens_max <- max(chrom[[index]]@intensity)
 
 							# In case of versus mode
 			                if (versus_mode) {
-			                    if (data@phenoData@data$sample_group[index] %in% neg_group) {
-					                intens <- -intens
-			                    } else if ( !(data@phenoData@data$sample_group[index] %in% neg_group) && !(data@phenoData@data$sample_group[index] %in% pos_group) ) {
-			                        intens <- 0
-			                	}
+			                	if (versus_by) { #sample
+			    	            	if (raw_names[index] %in% neg_sample) {
+						                intens <- -intens
+				                    } else if ( !(raw_names[index] %in% neg_sample) && !(raw_names[index] %in% pos_sample) ) {
+				                        intens <- 0
+				                	}
+			                	} else {
+			    	            	if (raw_group[index] %in% neg_group) {
+						                intens <- -intens
+				                    } else if ( !(raw_group[index] %in% neg_group) && !(raw_group[index] %in% pos_group) ) {
+				                        intens <- 0
+				                	}	
+			                	}          
 			                }
 
 							# In case of relative intensity
@@ -420,18 +444,18 @@ server <- function(input, output){
 							# Building the chromatogram
 	                        if ( group_file_nb <= files_to_get ) {
 		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                            x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=color()[i],
-		                            text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=color()[i],
+		                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 		                        )
 	                        } else if ( group_file_nb > (files_in_group - files_to_get) ) {
 		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                            x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=color()[i],
-		                            text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=color()[i],
+		                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 		                        )
 	                        } else {
 		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                            x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=color()[i], visible="legendonly",
-		                            text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=color()[i], visible="legendonly",
+		                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 		                        )
 	                        }
 
@@ -452,8 +476,8 @@ server <- function(input, output){
                 config(scrollZoom=TRUE, showLink=TRUE, displaylogo=FALSE,
                 modeBarButtons=list(list('toImage', 'zoom2d', 'select2d', 'pan2d', 'autoScale2d', 'resetScale2d')))
 
-            if(is.null(raws)) return(displayed_chromatogram)
-            else if(!length(raws)) return(displayed_chromatogram)
+            if(is.null(raw_names)) return(displayed_chromatogram)
+            else if(!length(raw_names)) return(displayed_chromatogram)
 
 			chrom <- bpc_chrom
 
@@ -467,7 +491,7 @@ server <- function(input, output){
 			for ( j in 1:length(groups) ) {
 
 				# Get the samples to display
-				files_in_group <- length(data@phenoData@data$sample_name[data@phenoData@data$sample_group == groups[j]])
+				files_in_group <- length(raw_names[raw_group == groups[j]])
 				files_to_get <- samples_to_display%/%(length(groups)*2)
 				if ( files_in_group < (files_to_get*2) ) {
 					files_to_add <- (files_to_get*2)-files_in_group
@@ -477,32 +501,32 @@ server <- function(input, output){
 					files_to_add <- 0
 				}
 
-                                # Counter initialization
+                # Counter initialization
 				group_file_nb <- 1
 
 				write("Parcours de chaque echantillon", file="/import/times.log", append=TRUE)
 
-				for ( i in 1:length(raws) ) {
+				for ( i in 1:length(raw_names) ) {
 					#Check if file is in group[j]
-					if ( data@phenoData@data$sample_group[i] == groups[j] ) {
-		                index <- which(data@phenoData@data$sample_name == raws[i])
+					if ( raw_group[i] == groups[j] ) {
+		                index <- which(raw_names == raw_names[i])
 						intens <- chrom[[index]]@intensity
 
 						# Building the chromatogram
 						if ( group_file_nb <= files_to_get ) {
                             displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-                                x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+                                x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_names[i],
+                                text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
                             )
 						} else if ( group_file_nb > (files_in_group - files_to_get) ) {
                             displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-                                x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=data@phenoData@data$sample_name[i],
-                                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+                                x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_names[i],
+                                text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
                             )
 						} else {
 				            displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-				                x=chrom[[index]]@rtime/60, y=intens, name=raws[i], hoverinfo='text', color=data@phenoData@data$sample_name[i], visible="legendonly",
-				                text=paste('Name: ', data@phenoData@data$sample_name[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+				                x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_names[i], visible="legendonly",
+				                text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 				            )
 						}
 
@@ -523,9 +547,8 @@ server <- function(input, output){
 	}
 
 	displayed_chromatogram <- reactive({
-		reactive_chromatogram <- build_chromato(xdata, raw_files, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), versus_mode(), relative_intensity(), color(), pos_group(), neg_group())
-	})	
-	#raw_files	
+		reactive_chromatogram <- build_chromato(raw_names, raw_group, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), relative_intensity(), color(), versus_mode(), versus_by(), pos_group(), neg_group(), pos_sample(), neg_sample())
+	})		
 
 	output$CHROM <- renderPlotly({
 		#-----------
@@ -547,6 +570,8 @@ server <- function(input, output){
 		return(graph)
 	})
 
+	#export_to_history <- eventReactive(input$export, {
+	#})
 
 	#output$export <- downloadHandler(
 	#	# File name

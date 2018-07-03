@@ -21,6 +21,9 @@ h5 {
 #display_adjusted {
 	padding-left: 15px
 }
+#sample_list {
+	height: 100%;
+}
 #select_sample {
 	overflow-y: scroll;
     /*direction : rtl;*/
