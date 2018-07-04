@@ -246,21 +246,21 @@ server <- function(input, output){
 		col_group <- input$color_by_group
 	})
 
-	color <- eventReactive(input$draw, {
-	    if (col_group()){
-			color <- raw_group
-        } else {
-        	color <- raw_names
-		}
-	})
-
 	palette <- eventReactive(input$draw, {
         if (col_group()){
-			palette <- brewer.pal(length(raw_group), "Set1")
+			palette <- brewer.pal(length(table(raw_group)), "Set1")
         } else {
 			palette <- rainbow(length(raw_names))
         }
     })
+
+	#color <- eventReactive(input$draw, {
+	    #if (col_group()){
+		#	color <- raw_group
+        #} else {
+        #	color <- raw_names
+		#}
+	#})
 
 	output$upper_group <- renderUI({
 		tagList(
@@ -348,7 +348,7 @@ server <- function(input, output){
 	})
 
 	# Building chromatogram function
-	build_chromato <- function(raw_names, raw_group, which_chromato, draw_chromato, groups_selected, adjusted, adjusted_time, relative_intensity, color, versus_mode, versus_by, pos_group, neg_group, pos_sample, neg_sample) {
+	build_chromato <- function(raw_names, raw_group, which_chromato, draw_chromato, groups_selected, adjusted, adjusted_time, relative_intensity, col_group, versus_mode, versus_by, pos_group, neg_group, pos_sample, neg_sample) {
 
         if (draw_chromato != 0){
 
@@ -441,23 +441,44 @@ server <- function(input, output){
 								intens <- intens*100/intens_max
 							}
 
-							# Building the chromatogram
-	                        if ( group_file_nb <= files_to_get ) {
-		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=color()[i],
-		                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-		                        )
-	                        } else if ( group_file_nb > (files_in_group - files_to_get) ) {
-		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=color()[i],
-		                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-		                        )
-	                        } else {
-		                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-		                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=color()[i], visible="legendonly",
-		                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
-		                        )
-	                        }
+							# In case of color by group
+					        if(col_group){
+								# Building the chromatogram
+	                	        if ( group_file_nb <= files_to_get ) {
+		        	                displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		    	                        x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_group[i],
+			                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+			                        )
+		                        } else if ( group_file_nb > (files_in_group - files_to_get) ) {
+		                        	displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+		                    	        x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_group[i],
+		                	            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+		            	            )
+	            	            } else {
+		    	                    displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+			                            x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', visible="legendonly", color=raw_group[i],
+			                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+			                        )
+	                        	}
+					        } else {
+					        	# Building the chromatogram
+		                        if ( group_file_nb <= files_to_get ) {
+			                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+			                            x=chrom[[index]]@rtime/60, y=intens, hoverinfo='text', color=raw_names[i],
+			                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+			                        )
+		                        } else if ( group_file_nb > (files_in_group - files_to_get) ) {
+			                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+			                            x=chrom[[index]]@rtime/60, y=intens, hoverinfo='text', color=raw_names[i],
+			                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+			                        )
+		                        } else {
+			                        displayed_chromatogram <- displayed_chromatogram %>% add_lines(
+			                            x=chrom[[index]]@rtime/60, y=intens, hoverinfo='text', visible="legendonly", color=raw_names[i],
+			                            text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
+			                        )
+		                        }
+					        }
 
 	                        group_file_nb <- group_file_nb + 1
 	                    }
@@ -515,17 +536,17 @@ server <- function(input, output){
 						# Building the chromatogram
 						if ( group_file_nb <= files_to_get ) {
                             displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-                                x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_names[i],
+                                x=chrom[[index]]@rtime/60, y=intens, hoverinfo='text', color=raw_names[i],
                                 text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
                             )
 						} else if ( group_file_nb > (files_in_group - files_to_get) ) {
                             displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-                                x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_names[i],
+                                x=chrom[[index]]@rtime/60, y=intens, hoverinfo='text', color=raw_names[i],
                                 text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
                             )
 						} else {
 				            displayed_chromatogram <- displayed_chromatogram %>% add_lines(
-				                x=chrom[[index]]@rtime/60, y=intens, name=raw_names[i], hoverinfo='text', color=raw_names[i], visible="legendonly",
+				                x=chrom[[index]]@rtime/60, y=intens, hoverinfo='text', visible="legendonly", color=raw_names[i],
 				                text=paste('Name: ', raw_names[i], '<br />Intensity: ', round(chrom[[index]]@intensity), '<br />Retention Time: ', round(chrom[[index]]@rtime/60, digits=2))
 				            )
 						}
@@ -547,7 +568,7 @@ server <- function(input, output){
 	}
 
 	displayed_chromatogram <- reactive({
-		reactive_chromatogram <- build_chromato(raw_names, raw_group, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), relative_intensity(), color(), versus_mode(), versus_by(), pos_group(), neg_group(), pos_sample(), neg_sample())
+		reactive_chromatogram <- build_chromato(raw_names, raw_group, which_chromatogram(), draw_chromato$value, selected_groups(), adjusted, adjusted_time(), relative_intensity(), col_group(), versus_mode(), versus_by(), pos_group(), neg_group(), pos_sample(), neg_sample())
 	})		
 
 	output$CHROM <- renderPlotly({
@@ -570,26 +591,18 @@ server <- function(input, output){
 		return(graph)
 	})
 
-	#export_to_history <- eventReactive(input$export, {
-	#})
+	observeEvent(input$export, {
+		file_name <- "test.tsv"
+		file_content<-data.frame(a=1:3,b=4:6)
+		write.table(file_content, file=file_name, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
+		gx_put(file_name)
+	})
 
-	#output$export <- downloadHandler(
-	#	# File name
-	#	filename <- 'plot.png',
-	#	# Content
-	#	content = function(file){
-	#		# Create plot
-	#		export(p = displayed_chromatogram(), file = 'tempPlot.png')
-	#		# Hand over the file
-	#		file.copy('tempPlot.png',file)
-	#	}
-	#)
-
+	## TO EXPORT PNG IMAGE OF THE GRAPH IN THE HISTORY ##
 	#observeEvent(input$export, {
 	#	tmpFile <- tempfile(pattern = "chrom_", tmpdir = tempdir(), fileext = ".png")
 	#	export(displayed_chromatogram(), file = tmpFile)
 	#	browseURL(tmpFile)
-
 	#	png(filename="plot.png")
 	#	displayed_chromatogram()
 	#	dev.off()
