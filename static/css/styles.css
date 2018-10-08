@@ -2,12 +2,25 @@ h5 {
 	margin-bottom: 5px;
 	margin-top: 5px;
 }
+h3 {
+	margin: 0 0 0 0;
+}
 .row {
 	height: 100%;
 	margin: 0px
 }
 .col {
 	height: 100%
+}
+.well{
+        padding: 10px !important;
+        margin: 0px !important;
+}
+.panel-heading {
+        padding: 0px;
+}
+.panel-title {
+        margin-left: 10px;
 }
 .form-group {
     margin-bottom: 0px;
@@ -30,4 +43,9 @@ h5 {
 	height: 100%;
 	border-width: 1px;
 	border-color: black;
+}
+.shiny-notification {
+        position: fixed;
+        top: calc(40%);
+        left: calc(40%);
 }

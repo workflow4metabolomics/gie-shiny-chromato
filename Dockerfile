@@ -1,5 +1,7 @@
 FROM quay.io/workflow4metabolomics/gie-shiny:latest
 
+# FROM gie-shiny
+
 # Installing packages needed
 RUN apt-get update && \
     apt-get install --no-install-recommends -y libnetcdf-dev
