@@ -11,7 +11,6 @@ library(shiny)
 library(shinyWidgets)
 library(shinyBS)
 library(xcms)
-#library(plotly)
 library(RColorBrewer)
 library(stringr)
 library(webshot)
@@ -19,29 +18,22 @@ library(tools)
 library(rlist)
 library(Hmisc)
 
-#-----------
-# DEBUG MODE
-write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
-write("Get RSession", file="/import/times.log", append=TRUE)
-#-----------
-
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 raw_names <- xdata@phenoData@data$sample_name
 raw_group <- xdata@phenoData@data$sample_group
 raw_files <- row.names(xdata@phenoData@data)
 
+
 ## Settings
 # Graph settings
 height <- "600"
+
 # Samples number to display
 samples_to_display <- 200
 
 # Get group names sorted
 groups <- sort(names(table(raw_group)))
-
-## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
-#gx_get(raw_names, identifier_type='name')
 
 # In case of adjusted raws (retcor)
 post_retcor <- hasAdjustedRtime(xdata)
@@ -49,14 +41,17 @@ post_retcor <- hasAdjustedRtime(xdata)
 # Making a color palette
 default_palette <- rainbow(length(raw_names))
 
+## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
+#gx_get(raw_names, identifier_type='name')
+
 #----------
 #DEBUG MODE
 write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 #----------
 
 
+## User Interface
 ui <- bootstrapPage(
-
 	fluidRow(
 		includeCSS("styles.css"),
 		column(12,
@@ -219,15 +214,20 @@ ui <- bootstrapPage(
 
 server <- function(input, output, session){
 
+	## Initialize variables
 	# Get pre-calculate chromatogram from chromTIC and chromBPI objects
-	tic_chrom <- chromTIC
-	bpi_chrom <- chromBPI
+	chrom_tic <- chromTIC
+	chrom_bpi <- chromBPI
 	if (post_retcor) {
-		tic_chrom_adjusted <- chromTIC_adjusted
-		bpi_chrom_adjusted <- chromBPI_adjusted
+		chrom_tic_adjusted <- chromTIC_adjusted
+		chrom_bpi_adjusted <- chromBPI_adjusted
 	}
 
+	files_list <- reactiveVal(0)
+	merged_data <- reactiveVal(0)
 
+
+	## Get Filters Values
 	# On-click Draw button action
 	draw_chromato <- reactiveValues(value = 0)
 	observeEvent(input$draw, {
@@ -244,34 +244,14 @@ server <- function(input, output, session){
 		relative_intensity <- input$intensity
 	})
 
-	# Display Adjusted title
-	output$display_adjusted <- renderUI({
-		tagList(
-			h5(strong("Adjusted RTime :")),
-			switchInput(
-				inputId = "adjustedTime",
-				label = strong("Adjusted"),
-				value = FALSE
-			)	
-		)
-	})
-
 	# Adjusted RTime
 	adjusted_time <- eventReactive(input$draw, {
 		adjusted_time <- input$adjustedTime
 	})
 
-	# Group displayed
+	# Groups displayed
 	selected_groups <- eventReactive(input$draw, {
 		selected_groups <- input$select_group
-	})
-
-	# Samples displayed
-	selected_samples <- eventReactive(input$draw, {
-		s_list <- lapply(input$select_group, function(group){
-			input[[paste0("select_",group)]]
-		})
-		selected_samples <- sort(unique(c(list.rbind(s_list))))
 	})
 
 	# Coloration
@@ -286,93 +266,38 @@ server <- function(input, output, session){
         }
     })
 
-	output$upper_group <- renderUI({
-		tagList(
-			selectInput(
-				inputId = "group1",
-				label = NULL,
-				choices = subset(groups, (groups %in% input$select_group)),
-				width = "180px"
-			)	
-		)
-	})
-
-	output$under_group <- renderUI({
-		tagList(
-			selectInput(
-				inputId = "group2",
-				label = NULL,
-				choices = subset(input$select_group, !(input$select_group %in% input$group1)),
-				width = "180px"
-			)
-		)
-	})
-
-	# TODO : Selectize TRUE with limited nb of sample or FALSE (ctrl + choice) ...
-	output$upper_sample <- renderUI({
-		tagList(
-			selectInput(
-				inputId = "sample1",
-				label = NULL,
-				choices = sort(subset(raw_names, (raw_group %in% input$select_group) & (raw_names %in% files_list()) )),
-				multiple = TRUE,
-				selectize = FALSE,
-				width = "180px"
-			)	
-		)
-	})
-	observeEvent(input$draw, {
-    	updateSelectInput(
-    		session = session, 
-    		inputId = "sample1",
-    		choices = selected_samples()
-    	)
-  	})
-
-	output$under_sample <- renderUI({
-		tagList(
-			selectInput(
-				inputId = "sample2",
-				label = NULL,
-				choices = sort(subset(raw_names, (raw_group %in% input$select_group) & (raw_names %in% files_list()) & !(raw_names %in% input$sample1))),
-				multiple = TRUE,
-				selectize = FALSE,
-				width = "180px"
-			)
-		)
-	})
-	observeEvent(input$draw, {
-    	updateSelectInput(
-    		session = session, 
-    		inputId = "sample2",
-    		choices = subset(selected_samples(), !(selected_samples() %in% input$sample1)),
-    	)
-  	})
-
+	# Versus
 	versus_mode <- eventReactive(input$draw, {
 		versus_mode <- input$versus
 	})
-
 	versus_by <- eventReactive(input$draw, {
 		versus_by <- input$versus_by
 	})
-
+	#-groups-#
 	pos_group <- eventReactive(input$draw, {
-		pos_group <- input$group1
+		pos_group <- input$p_group
 	})
-
 	neg_group <- eventReactive(input$draw, {
-		neg_group <- input$group2
+		neg_group <- input$n_group
 	})
-
+	#-samples-#
 	pos_sample <- eventReactive(input$draw, {
-		pos_sample <- input$sample1
+		pos_sample <- input$p_sample
 	})
-
 	neg_sample <- eventReactive(input$draw, {
-		neg_sample <- input$sample2
+		neg_sample <- input$n_sample
 	})
 
+    # Samples displayed
+	selected_samples <- eventReactive(input$draw, {
+		s_list <- lapply(input$select_group, function(group){
+			input[[paste0("select_",group)]]
+		})
+		selected_samples <- sort(unique(c(list.rbind(s_list))))
+	})
+
+
+	## Notification
 	showNotification(
 		HTML("<center><h3><b>BE CAREFUL.</b></h3></center> <br><br> <center><h4>By default, only few samples are displayed.</h4></center>"),
 		duration = 20,
@@ -382,23 +307,90 @@ server <- function(input, output, session){
 		session = getDefaultReactiveDomain()
 	)
 
-	# Generate UI Samples Filters
+
+	## Dynamic User Interface
+	# Adjusted filter (if retcor done)
+	output$display_adjusted <- renderUI({
+		tagList(
+			h5(strong("Adjusted RTime :")),
+			switchInput(
+				inputId = "adjustedTime",
+				label = strong("Adjusted"),
+				value = FALSE
+			)	
+		)
+	})
+
+	# Versus Upper/Under Filters
+	#-groups-#
+	output$upper_group <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "p_group",
+				label = NULL,
+				choices = subset(groups, (groups %in% input$select_group)),
+				width = "180px"
+			)	
+		)
+	})
+	output$under_group <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "n_group",
+				label = NULL,
+				choices = subset(input$select_group, !(input$select_group %in% input$p_group)),
+				width = "180px"
+			)
+		)
+	})
+	#-samples-#
+	# TODO : Selectize TRUE with limited nb of sample or FALSE (ctrl + choice) ...
+	output$upper_sample <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "p_sample",
+				label = NULL,
+				choices = sort(subset(raw_names, (raw_group %in% input$select_group) & (raw_names %in% files_list()) )),
+				multiple = TRUE,
+				selectize = FALSE,
+				width = "180px"
+			)	
+		)
+	})
+	output$under_sample <- renderUI({
+		tagList(
+			selectInput(
+				inputId = "n_sample",
+				label = NULL,
+				choices = sort(subset(raw_names, (raw_group %in% input$select_group) & (raw_names %in% files_list()) & !(raw_names %in% input$p_sample))),
+				multiple = TRUE,
+				selectize = FALSE,
+				width = "180px"
+			)
+		)
+	})
+
+	# Samples List
 	output$sample_list <- renderUI({
 		tagList(
 			wellPanel(
+				id = "tPanel",
+				style = "overflow-y:scroll; max-height: 600px",
 				HTML("<h3><b>Samples List</h3></b>"),
+				hr(),
+				actionButton(
+					inputId = "button_all",
+					label = "Select all"
+				),
+				actionButton(
+					inputId = "button_no",
+					label = "Unselect all"
+				),
+				br(),br(),
 			    lapply(input$select_group, function(group) {
 			    	fluidRow(
 			    		bsCollapsePanel(
-							title = h4(paste0(capitalize(group))),
-							actionButton(
-								inputId = paste0(group,"_button_all"),
-								label = "Select all"
-							),
-							actionButton(
-								inputId = paste0(group,"_button_no"),
-								label = "Unselect all"
-							),						
+							title = h4(paste0(capitalize(group))),					
 							checkboxGroupInput(
 			        			inputId = paste0("select_",group),
 			        			label = NULL,
@@ -413,7 +405,74 @@ server <- function(input, output, session){
 		)
 	})
 
-  	ranges <- reactiveValues(x = NULL, y = NULL)
+	# Hover Panel
+	output$hover_info <- renderUI({
+
+		merged_table<-merged_data()
+		hover <- input$plot_hover
+
+	    point <- nearPoints(merged_table, hover, xvar = "rtime", yvar = "intensity", threshold = 10, maxpoints = 1)
+	    if (nrow(point) == 0) return(NULL)
+
+	    left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+	    top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+    	left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+	    top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+	    style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ","left:", left_px + 2, "px; top:", top_px + 2, "px;")
+
+        wellPanel(
+	    	style = style,
+		    p(HTML(paste0(
+		    	"<b>Sample: </b>", point$sample, "<br/>",
+		        "<b>Retention time: </b>", point$rtime, "<br/>",
+		        "<b>Intensity: </b>", point$intensity
+		    )))
+        )
+	})
+
+
+	## Update Events
+	# Update Sample Versus
+	observeEvent(input$draw, {
+    	updateSelectInput(
+    		session = session, 
+    		inputId = "p_sample",
+    		choices = selected_samples()
+    	)
+  	})
+	observeEvent(input$draw, {
+    	updateSelectInput(
+    		session = session, 
+    		inputId = "n_sample",
+    		choices = subset(selected_samples(), !(selected_samples() %in% input$p_sample)),
+    	)
+  	})
+
+	# Update Samples List (Un/Select All)
+	observeEvent(input$button_all, {
+		lapply(input$select_group, function(group) {
+			updateCheckboxGroupInput(
+				session = session, 
+				inputId = paste0("select_", group),
+				choices = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group))),
+				selected = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group)))
+			)
+		})
+	})
+	observeEvent(input$button_no, {
+		lapply(input$select_group, function(group) {
+			updateCheckboxGroupInput(
+				session = session,
+				inputId = paste0("select_", group),
+				choices = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group))),
+				selected = NULL
+			)
+		})
+	})
+
+	## Graph Event
+	# Hover
+	ranges <- reactiveValues(x = NULL, y = NULL)
 	observeEvent(input$dblclick, {
 	    brush <- input$brush
 	    if (!is.null(brush)) {
@@ -425,19 +484,80 @@ server <- function(input, output, session){
 	    }
   	})
 
-	files_list <- reactiveVal(0)
-	merged_data <- reactiveVal(0)
+	## Export Event
+	# Export filter datas in History as RData file => Change to xdata filter by samples display
+	observeEvent(input$export, {
 
+		basename <- file_path_sans_ext(Sys.getenv("ORIGIN_FILENAME"))
+		extension <- ".chromato.RData"
+		filename <- paste0(basename, extension, sep="")
+		filetype <- "rdata.xcms.findchrompeaks"
+
+		LL<-c()
+		for(i in c(1:length(input$select_sample))){
+			raw_id<-which(raw_names==input$select_sample[i])
+			LL<-c(LL,raw_id)
+		}
+		xdata<-filterFile(xdata, file=LL, keepAdjustedRtime = FALSE)
+		chromBPI <- chromBPI
+		chromTIC <- chromTIC
+		if (post_retcor){
+			chromBPI_adjusted <- chromBPI_adjusted
+			chromTIC_adjusted <- chromTIC_adjusted
+		}
+
+		if (exists("zipfile")) { 
+			zipfile <- zipfile
+		} else {
+			zipfile <- NULL
+		}
+
+		selected_sample_files<-raw_files[raw_names %in% input$select_sample]
+		singlefile <- subset(singlefile, names(singlefile) %in% basename(selected_sample_files))
+
+		md5sumList$origin<-subset(md5sumList$origin, row.names(md5sumList$origin) %in% selected_sample_files)
+
+		sampleNamesList$sampleNamesOrigin <- input$select_sample
+		sampleNamesList$sampleNamesMakeNames <- input$select_sample
+
+		#saving R data in .Rdata file to save the variables used in the present tool
+		objects2save = c("xdata","zipfile","singlefile","md5sumList","sampleNamesList", "chromBPI", "chromTIC", "chromBPI_adjusted", "chromTIC_adjusted")
+		save(list=objects2save[objects2save %in% ls()], file=filename)
+
+		gx_put(filename, file_type=filetype)
+	})
+
+	# Export PNG image in history
+	#observeEvent(input$export, {
+	#	tmpFile <- tempfile(pattern = "chrom_", tmpdir = tempdir(), fileext = ".png")
+	#	export(displayed_chromatogram(), file = tmpFile)
+	#	browseURL(tmpFile)
+	#	png(filename="plot.png")
+	#	displayed_chromatogram()
+	#	dev.off()
+	#	path <- getwd()
+	#	file <- paste0(path, "/", "plot.png")
+	#	gx_put(tmpFile)
+	#})
+
+
+	## Plot
+	# Build Dynamic Plot
+	displayed_chromatogram <- reactive({
+		reactive_chromatogram <- build_chromato(raw_names, raw_group, which_chromatogram(), draw_chromato$value, selected_groups(), selected_samples(), post_retcor, adjusted_time(), relative_intensity(), col_group(), versus_mode(), versus_by(), pos_group(), neg_group(), pos_sample(), neg_sample())
+	})		
+	# Render Plot
+	output$CHROM <- renderPlot({
+		plot <- displayed_chromatogram() + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+		return(plot)
+	})
+
+
+	## Functions
 	# Building chromatogram function
 	build_chromato <- function(raw_names, raw_group, which_chromato, draw_chromato, groups_selected, samples_selected, post_retcor, adjusted_time, relative_intensity, col_group, versus_mode, versus_by, pos_group, neg_group, pos_sample, neg_sample) {
 
         if (draw_chromato != 0){
-
-			if (which_chromato) {
-				title <- "TIC"
-			} else {
-				title <- "BPC"
-			}
 
 	        if(is.null(raw_names)) return(displayed_chromatogram)
 	        else if(!length(raw_names)) return(displayed_chromatogram)
@@ -447,23 +567,29 @@ server <- function(input, output, session){
 	        if (post_retcor) {
 				# If Adjusted Option is TRUE
 	            if (adjusted_time) {
-					if (title=="TIC") {
-		                chrom <- tic_chrom_adjusted
-					} else if (title=="BPC") {
-		                chrom <- bpc_chrom_adjusted
+					if (which_chromato) {
+						title <- "TIC adjusted"
+		                chrom <- chrom_tic_adjusted
+					} else {
+						title <- "BPC adjusted"
+		                chrom <- chrom_bpi_adjusted
 					}
 	            } else {
-					if (title=="TIC") {
-		                chrom <- tic_chrom
-					} else if (title=="BPC") {
-		                chrom <- bpc_chrom
+					if (which_chromato) {
+						title <- "TIC"
+		                chrom <- chrom_tic
+					} else {
+						title <- "BPC"
+		                chrom <- chrom_bpi
 					}
 				}
 	        } else {
-				if (title=="TIC") {
-	                chrom <- tic_chrom
-				} else if (title=="BPC") {
-	                chrom <- bpc_chrom
+				if (which_chromato) {
+					title <- "TIC"
+	                chrom <- chrom_tic
+				} else {
+					title <- "BPC"
+	                chrom <- chrom_bpi
 				}
 	        }
 
@@ -527,7 +653,7 @@ server <- function(input, output, session){
             if(is.null(raw_names)) return(displayed_chromatogram)
             else if(!length(raw_names)) return(displayed_chromatogram)
 
-			chrom <- bpi_chrom
+			chrom <- chrom_bpi
 
 			# Initialize a variable in case of little group of samples
 			get_files_list <- lapply(groups, function(group){
@@ -558,91 +684,6 @@ server <- function(input, output, session){
         }
 		return(displayed_chromatogram)
 	}
-
-	displayed_chromatogram <- reactive({
-		reactive_chromatogram <- build_chromato(raw_names, raw_group, which_chromatogram(), draw_chromato$value, selected_groups(), selected_samples(), post_retcor, adjusted_time(), relative_intensity(), col_group(), versus_mode(), versus_by(), pos_group(), neg_group(), pos_sample(), neg_sample())
-	})		
-
-	output$CHROM <- renderPlot({
-		graph <- displayed_chromatogram() + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
-		return(graph)
-	})
-
-	output$hover_info <- renderUI({
-
-		merged_table<-merged_data()
-
-		hover <- input$plot_hover
-	    point <- nearPoints(merged_table, hover, xvar = "rtime", yvar = "intensity", threshold = 10, maxpoints = 1)
-    	#addDist = TRUE
-	    if (nrow(point) == 0) return(NULL)
-
-	    left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
-	    top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
-
-    	left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-	    top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
-
-	    style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ",
-	    	            "left:", left_px + 2, "px; top:", top_px + 2, "px;")
-
-        wellPanel(
-	    	style = style,
-		    p(HTML(paste0("<b>Sample: </b>", point$sample, "<br/>",
-		                  "<b>Retention time: </b>", point$rtime, "<br/>",
-		                  "<b>Intensity: </b>", point$intensity)))
-        )
-	})
-
-	# Export filter datas in History as RData file
-	observeEvent(input$export, {
-
-		basename <- file_path_sans_ext(Sys.getenv("ORIGIN_FILENAME"))
-		extension <- ".chromato.RData"
-		filename <- paste0(basename, extension, sep="")
-		filetype <- "rdata.xcms.findchrompeaks"
-
-		LL<-c()
-		for(i in c(1:length(input$select_sample))){
-			raw_id<-which(raw_names==input$select_sample[i])
-			LL<-c(LL,raw_id)
-		}
-		xdata<-filterFile(xdata, file=LL, keepAdjustedRtime = FALSE)
-
-		if (is.exist(zipfile)) { 
-			zipfile <- zipfile
-		}else {
-			zipfile <- NULL
-		}
-
-		selected_sample_files<-raw_files[raw_names %in% input$select_sample]
-		singlefile <- subset(singlefile, names(singlefile) %in% basename(selected_sample_files))
-
-		md5sumList$origin<-subset(md5sumList$origin, row.names(md5sumList$origin) %in% selected_sample_files)
-
-		sampleNamesList$sampleNamesOrigin <- input$select_sample
-		sampleNamesList$sampleNamesMakeNames <- input$select_sample
-		
-		#saving R data in .Rdata file to save the variables used in the present tool
-		objects2save = c("xdata","zipfile","singlefile","md5sumList","sampleNamesList")
-		save(list=objects2save[objects2save %in% ls()], file=filename)
-
-		gx_put(filename, file_type=filetype)
-	})
-
-	## TO EXPORT PNG IMAGE OF THE GRAPH IN THE HISTORY ##
-	#observeEvent(input$export, {
-	#	tmpFile <- tempfile(pattern = "chrom_", tmpdir = tempdir(), fileext = ".png")
-	#	export(displayed_chromatogram(), file = tmpFile)
-	#	browseURL(tmpFile)
-	#	png(filename="plot.png")
-	#	displayed_chromatogram()
-	#	dev.off()
-	#	path <- getwd()
-	#	file <- paste0(path, "/", "plot.png")
-	#	gx_put(tmpFile)
-	#})
-
 }
 
 shinyApp(ui, server)
