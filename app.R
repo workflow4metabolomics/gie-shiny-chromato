@@ -11,10 +11,9 @@ library(shiny)
 library(shinyWidgets)
 library(shinyBS)
 library(xcms)
+library(ggplot2)
 library(RColorBrewer)
 library(stringr)
-library(webshot)
-library(tools)
 library(rlist)
 library(Hmisc)
 
@@ -27,10 +26,10 @@ raw_files <- row.names(xdata@phenoData@data)
 
 ## Settings
 # Graph settings
-height <- "600"
+height <- "700"
 
 # Samples number to display
-samples_to_display <- 200
+samples_to_display <- 50
 
 # Get group names sorted
 groups <- sort(names(table(raw_group)))
@@ -53,127 +52,140 @@ write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
 ## User Interface
 ui <- bootstrapPage(
 	fluidRow(
-		includeCSS("styles.css"),
-		column(12,
+		column(11,
 			wellPanel(
-				HTML("<h3><b>Filters</h3></b>"),
-				fluidRow(
-					includeCSS("styles.css"),
-					column(3,
-						h5(strong("Chromatogram displayed :")),
-						switchInput(
-							inputId = "input_chromatogram",
-							label = strong("Chromatogram"),
-							value = FALSE,
-							offLabel = "BPC",
-							onLabel = "TIC"
-						)
-					),
-					column(3,
-						h5(strong("Intensity :")),
-						switchInput(
-							inputId = "intensity",
-							label = strong("Intensity"),
-							value = FALSE,
-							offLabel = "Absolute",
-							onLabel = "Relative"
-						)
-					),
-					column(3,
-						if (post_retcor) {
-							uiOutput("display_adjusted")
-						}
-					),
-					column(2),
-				        column(1,
-						br(),
-			            actionButton(
-			                inputId = "draw",
-			                label = "DRAW",
-			                class = "btn-primary"
-			            )
-					)
-				),
-				fluidRow(
-					column(3,
-						h5(strong("Group displayed :")),
-						selectInput(
-							inputId = "select_group",
-							label = NULL,
-							choices = groups,
-							selected = groups,
-							multiple = TRUE,
-							selectize = TRUE,
-							width = '200px'
-						)
-					),
-					column(3,
-						h5(strong("Color by Group :")),
-						switchInput(
-							inputId = "color_by_group",
-							label = strong("Color_by_Group"),
-							value = FALSE
-						)
-					),
-					column(6)
-				),
-				fluidRow(
-					column(3,
-						h5(strong("Versus mode :")),
-						switchInput(
-							inputId = "versus",
-							label = strong("Versus"),
-							value = FALSE
-						)
-					),
-					column(3,
-						conditionalPanel(
-							condition = "input.versus == true",
-							h5(strong("Group or Sample :")),
+				bsCollapsePanel(
+					title = HTML("<h3><b>Filters</h3></b>"),
+					fluidRow(
+						includeCSS("styles.css"),
+						column(3,
+							h5(strong("Chromatogram displayed :")),
 							switchInput(
-								inputId = "versus_by",
-								label = strong("Versus"),
+								inputId = "input_chromatogram",
+								label = strong("Chromatogram"),
 								value = FALSE,
-								offLabel = "Group",
-								onLabel = "Sample"
+								offLabel = "BPC",
+								onLabel = "TIC"
 							)
-						)
+						),
+						column(3,
+							h5(strong("Intensity :")),
+							switchInput(
+								inputId = "intensity",
+								label = strong("Intensity"),
+								value = FALSE,
+								offLabel = "Absolute",
+								onLabel = "Relative"
+							)
+						),
+						column(3,
+							if (post_retcor) {
+								uiOutput("display_adjusted")
+							}
+						),
+						column(3)
 					),
-					column(6,
-						fluidRow(
+					fluidRow(
+						column(3,
+							h5(strong("Group displayed :")),
+							selectInput(
+								inputId = "select_group",
+								label = NULL,
+								choices = groups,
+								selected = groups,
+								multiple = TRUE,
+								selectize = TRUE,
+								width = '200px'
+							)
+						),
+						column(3,
+							h5(strong("Color by Group :")),
+							switchInput(
+								inputId = "color_by_group",
+								label = strong("Color_by_Group"),
+								value = FALSE
+							)
+						),
+						column(6)
+					),
+					fluidRow(
+						column(3,
+							h5(strong("Versus mode :")),
+							switchInput(
+								inputId = "versus",
+								label = strong("Versus"),
+								value = FALSE
+							)
+						),
+						column(3,
 							conditionalPanel(
-								condition = "input.versus == true && input.versus_by == false",
-								column(5,
-									h5(strong("Upper Group :")),
-									uiOutput("upper_group")
+								condition = "input.versus == true",
+								h5(strong("Group or Sample :")),
+								switchInput(
+									inputId = "versus_by",
+									label = strong("Versus"),
+									value = FALSE,
+									offLabel = "Group",
+									onLabel = "Sample"
 								)
-							),
-			                conditionalPanel(
-			                    condition = "input.versus == true && input.versus_by == false",
-			                    column(5,
-									h5(strong("Under Group :")),
-									uiOutput("under_group")
-			                    )
-			                ),
-			                conditionalPanel(
-								condition = "input.versus == true && input.versus_by == true",					
-								column(5,
-									h5(strong("Upper Sample(s) :")),
-									uiOutput("upper_sample")
-								)
-							),
-							conditionalPanel(
-			                    condition = "input.versus == true && input.versus_by == true",
-								column(5,				
-									h5(strong("Under Sample(s) :")),
-									uiOutput("under_sample")
-			                    )
-							),
-							column(2)
+							)
+						),
+						column(6,
+							fluidRow(
+								conditionalPanel(
+									condition = "input.versus == true && input.versus_by == false",
+									column(5,
+										h5(strong("Upper Group :")),
+										uiOutput("upper_group")
+									)
+								),
+				                conditionalPanel(
+				                    condition = "input.versus == true && input.versus_by == false",
+				                    column(5,
+										h5(strong("Under Group :")),
+										uiOutput("under_group")
+				                    )
+				                ),
+				                conditionalPanel(
+									condition = "input.versus == true && input.versus_by == true",					
+									column(5,
+										h5(strong("Upper Sample(s) :")),
+										uiOutput("upper_sample")
+									)
+								),
+								conditionalPanel(
+				                    condition = "input.versus == true && input.versus_by == true",
+									column(5,				
+										h5(strong("Under Sample(s) :")),
+										uiOutput("under_sample")
+				                    )
+								),
+								column(2)
+							)
 						)
 					)
 				)
 			)
+		),
+		column(1,
+			br(),
+			fluidRow(
+		        actionButton(
+		            inputId = "draw",
+		            label = "DRAW",
+		            width = "100%",
+		            class = "btn-primary"
+		        )
+		    ),
+		    br(),
+		    fluidRow(
+	            actionButton(
+	                inputId = "export",
+	                label = "EXPORT",
+	                width = "100%",
+	                icon = icon("export", lib = "glyphicon")
+	            )
+		    )
 		)
 	),
 	br(),
@@ -199,16 +211,6 @@ ui <- bootstrapPage(
 		        )
 			)
 		)
-	),
-	fluidRow(
-		column(10),
-		column(2,
-            actionButton(
-            	icon = icon("export", lib = "glyphicon"),
-                inputId = "export",
-                label = "EXPORT"
-            )
-		)
 	)
 )
 
@@ -225,6 +227,7 @@ server <- function(input, output, session){
 
 	files_list <- reactiveVal(0)
 	merged_data <- reactiveVal(0)
+	palette <- reactiveVal(rainbow(length(raw_names)))
 
 
 	## Get Filters Values
@@ -258,13 +261,6 @@ server <- function(input, output, session){
 	col_group <- eventReactive(input$draw, {
 		col_group <- input$color_by_group
 	})
-	palette <- eventReactive(input$draw, {
-        if (col_group()){
-			palette <- brewer.pal(length(table(raw_group)), "Set1")
-        } else {
-			palette <- rainbow(length(raw_names))
-        }
-    })
 
 	# Versus
 	versus_mode <- eventReactive(input$draw, {
@@ -374,30 +370,25 @@ server <- function(input, output, session){
 	output$sample_list <- renderUI({
 		tagList(
 			wellPanel(
-				id = "tPanel",
-				style = "overflow-y:scroll; max-height: 600px",
+				style = paste0("overflow-y:scroll; max-height: ",height,"px"),
 				HTML("<h3><b>Samples List</h3></b>"),
 				hr(),
-				actionButton(
-					inputId = "button_all",
-					label = "Select all"
+				checkboxInput(
+					inputId = "check_all",
+					label = HTML("<b>Select all</b>")
 				),
-				actionButton(
-					inputId = "button_no",
-					label = "Unselect all"
-				),
-				br(),br(),
+				br(),
 			    lapply(input$select_group, function(group) {
 			    	fluidRow(
 			    		bsCollapsePanel(
-							title = h4(paste0(capitalize(group))),					
-							checkboxGroupInput(
-			        			inputId = paste0("select_",group),
-			        			label = NULL,
-			                	choices = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group))),
-			                	selected = sort(subset(raw_names, (raw_group %in% group) & (raw_names %in% files_list()) )),
-			                	width = "200px"
-			            	)
+							title = h4(paste0(capitalize(group))),	
+			            	my_checkboxGroupInput(
+								inputId = paste0("select_",group),
+								label = NULL,
+								choices = subset(raw_names, (raw_group %in% group) & (group==raw_group)),
+								selected = subset(raw_names,raw_names %in% files_list()),
+								colors = palette()
+							)
 			            )
 			      	)
 				})
@@ -449,25 +440,24 @@ server <- function(input, output, session){
   	})
 
 	# Update Samples List (Un/Select All)
-	observeEvent(input$button_all, {
-		lapply(input$select_group, function(group) {
-			updateCheckboxGroupInput(
-				session = session, 
-				inputId = paste0("select_", group),
-				choices = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group))),
-				selected = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group)))
-			)
-		})
-	})
-	observeEvent(input$button_no, {
-		lapply(input$select_group, function(group) {
-			updateCheckboxGroupInput(
-				session = session,
-				inputId = paste0("select_", group),
-				choices = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group))),
-				selected = NULL
-			)
-		})
+	observeEvent(input$check_all, {
+		if (input$check_all == TRUE) {
+			lapply(input$select_group, function(group) {
+				updateCheckboxGroupInput(
+					session = session, 
+					inputId = paste0("select_", group),
+					selected = sort(subset(raw_names, (raw_group %in% group) & (group==raw_group)))
+				)
+			})
+		} else {
+			lapply(input$select_group, function(group) {
+				updateCheckboxGroupInput(
+					session = session,
+					inputId = paste0("select_", group),
+					selected = NULL
+				)
+			})			
+		}
 	})
 
 	## Graph Event
@@ -612,7 +602,7 @@ server <- function(input, output, session){
 
 					# In case of versus mode
 	                if (versus_mode) {
-	                	if (versus_by) { #sample
+	                	if (versus_by) {
 	    	            	if (raw_names[index] %in% neg_sample) {
 				                intens <- -intens
 		                    } else if ( !(raw_names[index] %in% neg_sample) && !(raw_names[index] %in% pos_sample) ) {
@@ -643,9 +633,12 @@ server <- function(input, output, session){
 
 			# In case of color by group
 			if(col_group){
-				displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), group=c(as.character(merged_data[["sample"]])), col=c(as.character(merged_data[["group"]])))) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=guide_legend(title="Samples")) #+ guides(col=FALSE)
+				displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), group=c(as.character(merged_data[["sample"]])), col=c(as.character(merged_data[["group"]])))) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
 			} else {
-				displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=guide_legend(title="Samples")) #+ guides(col=FALSE)
+				palette <- rainbow(length(levels(merged_data[["sample"]])))
+				names(palette) <- sort(levels(merged_data[["sample"]]))
+				palette(palette)
+				displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
 			}
 
         } else {
@@ -680,9 +673,33 @@ server <- function(input, output, session){
 			merged_data <- list.rbind(data_tables)
 			merged_data(merged_data)
 
-			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=guide_legend(title="Samples")) + theme(legend.box.margin = unit(c(0,0,0,0), units="mm")) #+ guides(col=FALSE)
+			palette <- rainbow(length(levels(merged_data[["sample"]])))
+			names(palette) <- sort(levels(merged_data[["sample"]]))
+			palette(palette)
+
+			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
         }
 		return(displayed_chromatogram)
+	}
+
+	# CheckboxGroupInput
+	my_checkboxGroupInput <- function(inputId, label,choices, selected, colors){
+	  	div(
+	  		id=inputId,
+	  		class="form-group shiny-input-checkboxgroup shiny-input-container shiny-bound-input",
+	    	HTML(paste0('<label class="control-label" for="',inputId,'">',label,'</label>')),
+		    div(
+		    	class="shiny-options-group",
+		    	HTML(paste0(
+		    		'<div class="checkbox">',
+		            	'<label>',
+		                    '<input type="checkbox" name="', inputId, '" value="', choices, '"', ifelse(choices %in% selected, 'checked="checked"', ''), '/>',
+		                    '<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; color:', colors[choices],'"'),'style="font-size: 16px;"'), '>',choices,'</span>',
+	                    '</label>',
+	                '</div>', collapse = " "
+	            ))
+		    )
+	    )
 	}
 }
 
