@@ -4,7 +4,7 @@ options(repos=structure(c(CRAN="https://cran.rstudio.com/")))
 # Update installed packages
 update.packages(ask=FALSE, checkBuilt=TRUE)
 # Install some packages
-install.packages(c('shinyjs', 'shinyWidgets', 'shinyBS', 'RColorBrewer', 'stringr', 'webshot', 'rlist', 'Hmisc'))
+install.packages(c('shinyjs', 'shinyWidgets', 'shinyBS', 'RColorBrewer', 'stringr', 'webshot', 'rlist', 'Hmisc', 'tools' ,'rio'))
 
 # Install biocLite packages
 source("https://bioconductor.org/biocLite.R")

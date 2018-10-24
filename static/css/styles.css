@@ -12,7 +12,7 @@ h5, h3 {
 
 .well{
 	padding: 10px !important;
-	margin: 0px !important;
+	margin: 0px 0px 5px 0px !important;
 }
 .panel {
 	background-color: transparent;
@@ -43,5 +43,6 @@ h5, h3 {
 }
 
 #draw, #export {
-	margin-left: -15px;
+	margin: 5px 0 5px -15px;
+	width : calc(100% + 15px);
 }
