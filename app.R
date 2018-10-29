@@ -562,18 +562,12 @@ server <- function(input, output, session){
 	})
 
 	# Export PNG image in history
-	#observeEvent(input$export, {
-		#tmpFile <- tempfile(pattern = "chrom_", tmpdir = tempdir(), fileext = ".png")
-		#export(displayed_chromatogram(), file = tmpFile)
-		#browseURL(tmpFile)
-		#png(filename="plot.png")
-		#path <- getwd()
-		#tpmFile <- paste0(path, "/", "plot.png")
-		#png(filename=tmpFile)
-		#displayed_chromatogram()
-		#dev.off()
-		#gx_put(tmpFile)
-	#})
+	observeEvent(input$export_png, {
+		png(filename="plot.png", width=2000, height = 1000)
+		plot(displayed_chromatogram())
+		dev.off()
+		gx_put("plot.png")
+	})
 
 
 	## Plot
