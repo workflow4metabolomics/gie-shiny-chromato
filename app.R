@@ -1,11 +1,3 @@
-#-----------
-# DEBUG MODE
-file.create("/import/times.log", showWarnings = TRUE)
-write("Starting debug mode", file="/import/times.log", append=TRUE)
-write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
-write("Loading packages", file="/import/times.log", append=TRUE)
-#-----------
-
 # Load packages
 library(shiny)
 library(shinyWidgets)
@@ -25,6 +17,7 @@ raw_names <- xdata@phenoData@data$sample_name
 raw_group <- xdata@phenoData@data$sample_group
 raw_files <- row.names(xdata@phenoData@data)
 
+#raw_names <- rep(raw_names, times=8)
 
 ## Settings
 # Graph settings
@@ -32,6 +25,7 @@ height <- "750"
 
 # Samples number to display
 samples_to_display <- 50
+random_number <- 50
 
 # Get group names sorted
 groups <- sort(names(table(raw_group)))
@@ -44,11 +38,6 @@ default_palette <- rainbow(length(raw_names))
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
 #gx_get(raw_names, identifier_type='name')
-
-#----------
-#DEBUG MODE
-write(as.character(Sys.time()), file="/import/times.log", append=TRUE)
-#----------
 
 
 ## User Interface
@@ -176,13 +165,6 @@ ui <- bootstrapPage(
 		            label = "DRAW",
 		            class = "btn-primary"
 		        )
-		    ),
-		    fluidRow(
-	            actionButton(
-	                inputId = "export",
-	                label = "EXPORT",
-	                icon = icon("export", lib = "glyphicon")
-	            )	           
 		    )
 		)
 	),
@@ -197,6 +179,21 @@ ui <- bootstrapPage(
 				uiOutput("hover_info")
 			),
 			fluidRow(
+	            actionButton(
+	                inputId = "export_png",
+	                label = "PNG",
+	                icon = icon("export", lib = "glyphicon")
+	            ),
+	            bsPopover(
+					id = "export_png",
+					title = "",
+					content = "Export the graph in PNG file.",
+					placement = "bottom",
+					trigger = "hover",
+			  		options = NULL
+			  	)
+	        ),
+	        fluidRow(
 				plotOutput('CHROM', 
 					height = height,
 					dblclick = "dblclick",
@@ -249,11 +246,6 @@ server <- function(input, output, session){
 		adjusted_time <- input$adjustedTime
 	})
 
-	# Groups displayed
-	#selected_groups <- eventReactive(input$draw, {
-	#	selected_groups <- input$select_group
-	#})
-
 	# Coloration
 	col_group <- eventReactive(input$draw, {
 		col_group <- input$color_by_group
@@ -286,7 +278,7 @@ server <- function(input, output, session){
 		s_list <- lapply(input$select_group, function(group){
 			input[[paste0("select_",group)]]
 		})
-		selected_samples <- do.call(c, s_list)#sort(unique(c(list.rbind(s_list))))
+		selected_samples <- do.call(c, s_list)
 	})
 
 
@@ -299,7 +291,6 @@ server <- function(input, output, session){
 	  	type = "warning",
 		session = getDefaultReactiveDomain()
 	)
-
 
 	## Dynamic User Interface
 	# Adjusted filter (if retcor done)
@@ -343,7 +334,6 @@ server <- function(input, output, session){
 			selectInput(
 				inputId = "p_sample",
 				label = NULL,
-				#choices = sort(subset(raw_names, (raw_group %in% input$select_group) & (raw_names %in% files_list()) )),
 				choices = sort(files_list()),
 				multiple = TRUE,
 				selectize = FALSE,
@@ -356,7 +346,6 @@ server <- function(input, output, session){
 			selectInput(
 				inputId = "n_sample",
 				label = NULL,
-				#choices = sort(subset(raw_names, (raw_group %in% input$select_group) & (raw_names %in% files_list()) & !(raw_names %in% input$p_sample))),
 				choices = sort(subset(files_list(), !(files_list() %in% input$p_sample))),
 				multiple = TRUE,
 				selectize = FALSE,
@@ -380,9 +369,10 @@ server <- function(input, output, session){
 					inputId = "uncheck",
 					label = "Uncheck all"
 				),
+				br(),
 				actionButton(
 					inputId = "random_samples",
-					label = "Choose 50 random samples"
+					label = paste0(random_number," random samples")
 				),
 				br(),
 			    lapply(input$select_group, function(group) {
@@ -398,7 +388,21 @@ server <- function(input, output, session){
 							)
 			            )
 			      	)
-				})
+				}),
+				hr(),
+				actionButton(
+	                inputId = "export_rdata",
+	                label = "RData",
+	                icon = icon("export", lib = "glyphicon")
+	            ),
+	            bsPopover(
+					id = "export_rdata",
+					title = "",
+					content = "Export to history selected samples in new RData file.",
+					placement = "bottom",
+					trigger = "hover",
+			  		options = NULL
+			  	)
 			)
 		)
 	})
@@ -463,10 +467,15 @@ server <- function(input, output, session){
 				inputId = paste0("select_", group),
 				selected = character(0)
 			)
-		})			
+		})
 	})
 	observeEvent(input$random_samples, {
-		random_sample_list <- sample(raw_names[raw_group %in% input$select_group], 25)
+		if (random_number<length(raw_names)) {
+			random_sample_list <- sample(raw_names[raw_group %in% input$select_group], random_number)
+		} else {
+			random_number <- length(raw_names)/2
+			random_sample_list <- sample(raw_names[raw_group %in% input$select_group], random_number)
+		}
 		lapply(input$select_group, function(group) {
 			updateCheckboxGroupInput(
 				session = session, 
@@ -492,12 +501,12 @@ server <- function(input, output, session){
 
 	## Export Event
 	# Display confirm message box before to export RData in history
-    observeEvent(input$export, {
+    observeEvent(input$export_rdata, {
 	    confirmSweetAlert(
 	  		session = session,
 	  		inputId = "confirmation",
 		    title = "Export RData file in history containing only displayed samples.",
-		    text = HTML("To continue the workflow from the exported RData file,<br>please restart from the step <b>groupChromPeaks</b>."),
+		    text = HTML("To continue the workflow from the exported RData file,<br>please restart from the step <b>groupChromPeaks/adjustRTime</b>."),
 		    type = "warning",
 		    btn_labels = c("Cancel", "Confirm"),
 		    closeOnClickOutside = TRUE,
@@ -512,19 +521,18 @@ server <- function(input, output, session){
 			#filename <- paste0(basename, extension, sep="")
 			filename <- "xset.merged.chromato.RData"
 			filetype <- "rdata.xcms.findchrompeaks"
-			files_list <- files_list()
 
 			# Update xdata
-			samples_ids <- do.call(c,lapply(files_list, function(file){which(raw_names==file)}))
+			samples_ids <- do.call(c,lapply(files_list(), function(file){which(raw_names==file)}))
 			xdata <- filterFile(xdata, file=samples_ids, keepAdjustedRtime = FALSE)
 
 			# Update chromatograms
-			files_names <- rownames(xdata@phenoData@data)[xdata@phenoData@data$sample_name %in% files_list]
+			files_names <- rownames(xdata@phenoData@data)[xdata@phenoData@data$sample_name %in% files_list()]
 			chromBPI@.Data <- t(as.matrix(chromBPI@.Data[,colnames(chromBPI@.Data) %in% files_names]))
 			chromBPI@phenoData <- xdata@phenoData
 			chromTIC@.Data <- t(as.matrix(chromTIC@.Data[,colnames(chromBPI@.Data) %in% files_names]))
 			chromTIC@phenoData <- xdata@phenoData
-			if (post_retcor){
+			if (post_retcor) {
 				chromBPI_adjusted@.Data <- t(as.matrix(chromBPI_adjusted@.Data[,colnames(chromBPI_adjusted@.Data) %in% files_names]))
 				chromBPI_adjusted@phenoData <- xdata@phenoData
 				chromTIC_adjusted@.Data <- t(as.matrix(chromTIC_adjusted@.Data[,colnames(chromBPI_adjusted@.Data) %in% files_names]))
@@ -537,13 +545,13 @@ server <- function(input, output, session){
 				zipfile <- NULL
 			}
 
-			selected_sample_files <- raw_files[raw_names %in% input$select_sample]
+			selected_sample_files <- raw_files[raw_names %in% files_list()]
 			singlefile <- subset(singlefile, names(singlefile) %in% basename(selected_sample_files))
 
 			md5sumList$origin <- subset(md5sumList$origin, row.names(md5sumList$origin) %in% selected_sample_files)
 
-			sampleNamesList$sampleNamesOrigin <- input$select_sample # files_list
-			sampleNamesList$sampleNamesMakeNames <- input$select_sample # files_list
+			sampleNamesList$sampleNamesOrigin <- files_list()
+			sampleNamesList$sampleNamesMakeNames <- files_list()
 
 			# Saving R data in .Rdata file to save the variables used in the present tool
 			objects2save = c("xdata","zipfile","singlefile","md5sumList","sampleNamesList", "chromBPI", "chromTIC", "chromBPI_adjusted", "chromTIC_adjusted")
@@ -584,10 +592,10 @@ server <- function(input, output, session){
 	# Building chromatogram function
 	build_chromato <- function(raw_names, raw_group, which_chromato, draw_chromato, samples_selected, post_retcor, adjusted_time, relative_intensity, col_group, versus_mode, versus_by, pos_group, neg_group, pos_sample, neg_sample) {
 
-        if (draw_chromato != 0){
+        if(is.null(raw_names)) return(displayed_chromatogram)
+        else if(!length(raw_names)) return(displayed_chromatogram)
 
-	        if(is.null(raw_names)) return(displayed_chromatogram)
-	        else if(!length(raw_names)) return(displayed_chromatogram)
+        if (draw_chromato != 0){
 
 	        # According to Adjusted Time
 			# If retcor has been done
@@ -620,50 +628,39 @@ server <- function(input, output, session){
 				}
 	        }
 
-	        # Initialize a variable in case of little group of samples + Ajouter groups_selected dans la fonction
-			#get_files_list <- lapply(groups, function(group){
-			#	if (group %in% groups_selected){
-			#		files_in_groups <- raw_names[raw_group == group & raw_names %in% samples_selected]
-			#	}
-			#})
-			#files_list <- do.call(c, get_files_list)
-			files_list <- samples_selected
-			files_list(files_list)
+			files_list(samples_selected)
 
-  			sample_table <- NULL
-			data_tables <- lapply(files_list, function(sample){
-				if (sample %in% samples_selected){
-					index <- which(raw_names==sample)
-					sample_group <- raw_group[index]
-					intens <- chrom[[index]]@intensity
-					intens_max <- max(chrom[[index]]@intensity)
+			data_tables <- lapply(samples_selected, function(sample){
+				index <- which(raw_names==sample)
+				sample_group <- raw_group[index]
+				intens <- chrom[[index]]@intensity
+				intens_max <- max(chrom[[index]]@intensity)
 
-					# In case of versus mode
-	                if (versus_mode) {
-	                	if (versus_by) {
-	    	            	if (raw_names[index] %in% neg_sample) {
-				                intens <- -intens
-		                    } else if ( !(raw_names[index] %in% neg_sample) && !(raw_names[index] %in% pos_sample) ) {
-		                        intens <- 0
-		                	}
-	                	} else {
-	    	            	if (raw_group[index] %in% neg_group) {
-				                intens <- -intens
-		                    } else if ( !(raw_group[index] %in% neg_group) && !(raw_group[index] %in% pos_group) ) {
-		                        intens <- 0
-		                	}
+				# In case of versus mode
+                if (versus_mode) {
+                	if (versus_by) {
+    	            	if (raw_names[index] %in% neg_sample) {
+			                intens <- -intens
+	                    } else if ( !(raw_names[index] %in% neg_sample) && !(raw_names[index] %in% pos_sample) ) {
+	                        intens <- 0
 	                	}
-	                }
-	                # In case of relative intensity
-					if (relative_intensity) {
-						intens <- intens*100/intens_max
-					}
-
-					table <- data.frame(rtime=chrom[[index]]@rtime/60, intensity=intens, sample=as.character(sample), group=as.character(sample_group))
-					names <- rownames(table)
-					rownames(table) <- NULL
-					table <- as.data.frame(cbind(names, table))
+                	} else {
+    	            	if (raw_group[index] %in% neg_group) {
+			                intens <- -intens
+	                    } else if ( !(raw_group[index] %in% neg_group) && !(raw_group[index] %in% pos_group) ) {
+	                        intens <- 0
+	                	}
+                	}
+                }
+                # In case of relative intensity
+				if (relative_intensity) {
+					intens <- intens*100/intens_max
 				}
+
+				table <- data.frame(rtime=chrom[[index]]@rtime/60, intensity=intens, sample=as.character(sample), group=as.character(sample_group))
+				names <- rownames(table)
+				rownames(table) <- NULL
+				table <- as.data.frame(cbind(names, table))
 			})
 			merged_data <- list.rbind(data_tables)
 			merged_data(merged_data)
@@ -680,31 +677,28 @@ server <- function(input, output, session){
 
         } else {
 
-            if(is.null(raw_names)) return(displayed_chromatogram)
-            else if(!length(raw_names)) return(displayed_chromatogram)
-
 			chrom <- chrom_bpi
 
-			# Reduce the number of samples displayed
-			get_files_list <- NULL
+			# Limit the number of samples displayed
+			get_samples_list <- NULL
 			files_to_add <- 0
 			for (group in groups) {
 				files_in_group <- raw_names[raw_group == group]
 				files_to_get <- samples_to_display%/%length(groups)
 				if (length(files_in_group) < files_to_get) {
 					files_to_add <- files_to_add+files_to_get-length(files_in_group)
-					get_files_list<- c(get_files_list, files_in_group)
+					get_samples_list<- c(get_samples_list, files_in_group)
 				} else {
-					get_files_list<- c(get_files_list, files_in_group[c(1:((files_to_get+files_to_add)/2), (length(files_in_group)-((files_to_get+files_to_add)/2)):length(files_in_group))])
+					get_samples_list<- c(get_samples_list, files_in_group[c(1:((files_to_get+files_to_add)/2), (length(files_in_group)-((files_to_get+files_to_add)/2)):length(files_in_group))])
 					files_to_add <- 0
 				}
 			}
-			files_list <- list.rbind(get_files_list)
-			files_list(files_list)
+			samples_selected <- list.rbind(get_samples_list)
+			files_list(samples_selected)
 
-			sample_table <- NULL
-			data_tables <- lapply(files_list, function(sample){
+			data_tables <- lapply(samples_selected, function(sample){
 				index <- which(raw_names==sample)
+				#table <- data.frame(rtime=chrom[[index[1]]]@rtime/60, intensity=chrom[[index[1]]]@intensity, sample=as.character(sample))
 				table <- data.frame(rtime=chrom[[index]]@rtime/60, intensity=chrom[[index]]@intensity, sample=as.character(sample))
 				names <- rownames(table)
 				rownames(table) <- NULL
@@ -716,7 +710,6 @@ server <- function(input, output, session){
 			palette <- rainbow(length(levels(merged_data[["sample"]])))
 			names(palette) <- sort(levels(merged_data[["sample"]]))
 			palette(palette)
-
 			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
         }
 		return(displayed_chromatogram)
