@@ -43,11 +43,11 @@ h5, h3 {
 }
 
 #draw {
-	margin: 5px 0 5px -15px;
+	margin: 25px 0 5px -15px;
 	width : calc(100% + 15px);
 }
 #export_png {
 	position : absolute;
 	right: 25px;
-	top: 10px;
+	top: 35px;
 }

@@ -26,6 +26,9 @@ height <- "750"
 # Samples number to display
 samples_to_display <- 50
 random_number <- 50
+if (random_number > length(raw_names)) {
+	random_number <- length(raw_names)%/%2
+}
 
 # Get group names sorted
 groups <- sort(names(table(raw_group)))
@@ -33,8 +36,6 @@ groups <- sort(names(table(raw_group)))
 # In case of adjusted raws (retcor)
 post_retcor <- hasAdjustedRtime(xdata)
 
-# Making a color palette
-default_palette <- rainbow(length(raw_names))
 
 ## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
 #gx_get(raw_names, identifier_type='name')
@@ -470,12 +471,7 @@ server <- function(input, output, session){
 		})
 	})
 	observeEvent(input$random_samples, {
-		if (random_number<length(raw_names)) {
-			random_sample_list <- sample(raw_names[raw_group %in% input$select_group], random_number)
-		} else {
-			random_number <- length(raw_names)/2
-			random_sample_list <- sample(raw_names[raw_group %in% input$select_group], random_number)
-		}
+		random_sample_list <- sample(raw_names[raw_group %in% input$select_group], random_number)
 		lapply(input$select_group, function(group) {
 			updateCheckboxGroupInput(
 				session = session, 
@@ -564,7 +560,7 @@ server <- function(input, output, session){
 	# Export PNG image in history
 	observeEvent(input$export_png, {
 		png(filename="plot.png", width=2000, height = 1000)
-		plot(displayed_chromatogram())
+		plot(displayed_chromatogram() + guides(col=guide_legend(title="Samples")))
 		dev.off()
 		gx_put("plot.png")
 	})
@@ -577,7 +573,7 @@ server <- function(input, output, session){
 	})		
 	# Render Plot
 	output$CHROM <- renderPlot({
-		plot <- displayed_chromatogram() + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE)
+		plot <- displayed_chromatogram() + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE) + guides(col=FALSE)
 		return(plot)
 	})
 
@@ -661,13 +657,22 @@ server <- function(input, output, session){
 
 			# In case of color by group
 			if (col_group) {
-				displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), group=c(as.character(merged_data[["sample"]])), col=c(as.character(merged_data[["group"]])))) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
+				colors <- rainbow(length(levels(merged_data[["group"]])))
+				palette <- lapply(levels(merged_data[["group"]]), function(group){
+					palette <- rep(colors[which(group == levels(merged_data[["group"]]))], length(raw_names[group == raw_group]))
+					names(palette) <- sort(raw_names[group == raw_group])
+					palette
+				})
+				palette <- do.call(c, palette)
+				palette(palette)
 			} else {
 				palette <- rainbow(length(levels(merged_data[["sample"]])))
 				names(palette) <- sort(levels(merged_data[["sample"]]))
 				palette(palette)
-				displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
 			}
+			
+			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle(title) + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
+
 
         } else {
 
@@ -704,13 +709,13 @@ server <- function(input, output, session){
 			palette <- rainbow(length(levels(merged_data[["sample"]])))
 			names(palette) <- sort(levels(merged_data[["sample"]]))
 			palette(palette)
-			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + guides(col=FALSE)
+			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle("BPC") + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
         }
 		return(displayed_chromatogram)
 	}
 
 	# CheckboxGroupInput
-	my_checkboxGroupInput <- function(inputId, label,choices, selected, colors){
+	my_checkboxGroupInput <- function(inputId, label, choices, selected, colors){
 	  	div(
 	  		id=inputId,
 	  		class="form-group shiny-input-checkboxgroup shiny-input-container shiny-bound-input",
