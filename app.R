@@ -13,15 +13,16 @@ library(rio)
 
 # Get RSession
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
-raw_names <- xdata@phenoData@data$sample_name
-raw_group <- xdata@phenoData@data$sample_group
-raw_files <- row.names(xdata@phenoData@data)
-
-#raw_names <- rep(raw_names, times=8)
 
 ## Settings
 # Graph settings
 height <- "750"
+
+# Init raws variables
+raw_names <- xdata@phenoData@data$sample_name
+raw_group <- xdata@phenoData@data$sample_group
+raw_files <- row.names(xdata@phenoData@data)
+groups <- sort(names(table(raw_group)))
 
 # Samples number to display
 samples_to_display <- 50
@@ -29,9 +30,6 @@ random_number <- 50
 if (random_number > length(raw_names)) {
 	random_number <- length(raw_names)%/%2
 }
-
-# Get group names sorted
-groups <- sort(names(table(raw_group)))
 
 # In case of adjusted raws (retcor)
 post_retcor <- hasAdjustedRtime(xdata)
@@ -293,6 +291,7 @@ server <- function(input, output, session){
 		session = getDefaultReactiveDomain()
 	)
 
+
 	## Dynamic User Interface
 	# Adjusted filter (if retcor done)
 	output$display_adjusted <- renderUI({
@@ -364,23 +363,26 @@ server <- function(input, output, session){
 				hr(),
 				actionButton(
 					inputId = "check_all",
-					label = "Check all"
+					label = "Check all",
+					width = "49%"
 				),
 				actionButton(
 					inputId = "uncheck",
-					label = "Uncheck all"
+					label = "Uncheck all",
+					width = "49%"
 				),
 				br(),
 				actionButton(
 					inputId = "random_samples",
-					label = paste0(random_number," random samples")
+					label = paste0(random_number," random samples"),
+					width = "100%"
 				),
 				br(),
 			    lapply(input$select_group, function(group) {
 			    	fluidRow(
 			    		bsCollapsePanel(
 							title = h4(paste0(capitalize(group))),	
-			            	my_checkboxGroupInput(
+			            	coloredCheckboxGroupInput(
 								inputId = paste0("select_",group),
 								label = NULL,
 								choices = subset(raw_names, raw_group == group),
@@ -481,6 +483,7 @@ server <- function(input, output, session){
 		})
 	})
 
+
 	## Graph Event
 	# Hover
 	ranges <- reactiveValues(x = NULL, y = NULL)
@@ -494,6 +497,7 @@ server <- function(input, output, session){
 	    	ranges$y <- NULL
 	    }
   	})
+
 
 	## Export Event
 	# Display confirm message box before to export RData in history
@@ -673,7 +677,6 @@ server <- function(input, output, session){
 			
 			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle(title) + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
 
-
         } else {
 
 			chrom <- chrom_bpi
@@ -697,7 +700,6 @@ server <- function(input, output, session){
 
 			data_tables <- lapply(samples_selected, function(sample){
 				index <- which(raw_names==sample)
-				#table <- data.frame(rtime=chrom[[index[1]]]@rtime/60, intensity=chrom[[index[1]]]@intensity, sample=as.character(sample))
 				table <- data.frame(rtime=chrom[[index]]@rtime/60, intensity=chrom[[index]]@intensity, sample=as.character(sample))
 				names <- rownames(table)
 				rownames(table) <- NULL
@@ -714,8 +716,8 @@ server <- function(input, output, session){
 		return(displayed_chromatogram)
 	}
 
-	# CheckboxGroupInput
-	my_checkboxGroupInput <- function(inputId, label, choices, selected, colors){
+	# Checkbox Group Input
+	coloredCheckboxGroupInput <- function(inputId, label, choices, selected, colors){
 	  	div(
 	  		id=inputId,
 	  		class="form-group shiny-input-checkboxgroup shiny-input-container shiny-bound-input",
