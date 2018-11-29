@@ -2,6 +2,7 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyBS)
+library(shinydashboard)
 library(xcms)
 library(ggplot2)
 library(RColorBrewer)
@@ -45,7 +46,7 @@ ui <- bootstrapPage(
 		column(11,
 			wellPanel(
 				bsCollapsePanel(
-					title = HTML("<h3><b>Filters</h3></b>"),
+					title = HTML("<h3><b>Graph Options</h3></b>"),
 					fluidRow(
 						includeCSS("styles.css"),
 						column(3,
@@ -58,6 +59,14 @@ ui <- bootstrapPage(
 								onLabel = "TIC"
 							)
 						),
+						column(3,
+							h5(strong("Color by Group :")),
+							switchInput(
+								inputId = "color_by_group",
+								label = HTML("<b>Color&nbsp;by&nbsp;Group</b>"),
+								value = FALSE
+							)
+						),						
 						column(3,
 							h5(strong("Intensity :")),
 							switchInput(
@@ -72,31 +81,7 @@ ui <- bootstrapPage(
 							if (post_retcor) {
 								uiOutput("display_adjusted")
 							}
-						),
-						column(3)
-					),
-					fluidRow(
-						column(3,
-							h5(strong("Group displayed :")),
-							selectInput(
-								inputId = "select_group",
-								label = NULL,
-								choices = groups,
-								selected = groups,
-								multiple = TRUE,
-								selectize = TRUE,
-								width = '200px'
-							)
-						),
-						column(3,
-							h5(strong("Color by Group :")),
-							switchInput(
-								inputId = "color_by_group",
-								label = strong("Color_by_Group"),
-								value = FALSE
-							)
-						),
-						column(6)
+						)
 					),
 					fluidRow(
 						column(3,
@@ -121,39 +106,39 @@ ui <- bootstrapPage(
 							)
 						),
 						column(6,
+							style = "margin-left: -15px;",
 							fluidRow(
 								conditionalPanel(
 									condition = "input.versus == true && input.versus_by == false",
-									column(5,
+									column(6,
 										h5(strong("Upper Group :")),
 										uiOutput("upper_group")
 									)
 								),
 				                conditionalPanel(
 				                    condition = "input.versus == true && input.versus_by == false",
-				                    column(5,
+				                    column(6,
 										h5(strong("Under Group :")),
 										uiOutput("under_group")
 				                    )
 				                ),
 				                conditionalPanel(
 									condition = "input.versus == true && input.versus_by == true",					
-									column(5,
+									column(6,
 										h5(strong("Upper Sample(s) :")),
 										uiOutput("upper_sample")
 									)
 								),
 								conditionalPanel(
 				                    condition = "input.versus == true && input.versus_by == true",
-									column(5,				
+									column(6,				
 										h5(strong("Under Sample(s) :")),
 										uiOutput("under_sample")
 				                    )
-								),
-								column(2)
+								)
 							)
 						)
-					)
+					)					
 				)
 			)
 		),
@@ -359,8 +344,25 @@ server <- function(input, output, session){
 		tagList(
 			wellPanel(
 				style = paste0("overflow-y:scroll; max-height: ",height,"px"),
-				HTML("<h3><b>Samples List</h3></b>"),
+				HTML("<h3><b>Data Filters</h3></b>"),
 				hr(),
+				h5(strong("Group displayed :")),
+				selectInput(
+					inputId = "select_group",
+					label = NULL,
+					choices = groups,
+					selected = groups,
+					multiple = TRUE,
+					selectize = TRUE,
+					width = '200px'
+				),
+				h5(strong("Randomize :")),
+				actionButton(
+					inputId = "random_samples",
+					label = paste0(random_number," random samples"),
+					width = "100%"
+				),
+				h5(strong("Samples List :")),
 				actionButton(
 					inputId = "check_all",
 					label = "Check all",
@@ -372,16 +374,10 @@ server <- function(input, output, session){
 					width = "49%"
 				),
 				br(),
-				actionButton(
-					inputId = "random_samples",
-					label = paste0(random_number," random samples"),
-					width = "100%"
-				),
-				br(),
-			    lapply(input$select_group, function(group) {
+				lapply(input$select_group, function(group) {
 			    	fluidRow(
 			    		bsCollapsePanel(
-							title = h4(paste0(capitalize(group))),	
+							title = h5(paste0(capitalize(group))),	
 			            	coloredCheckboxGroupInput(
 								inputId = paste0("select_",group),
 								label = NULL,
@@ -597,27 +593,27 @@ server <- function(input, output, session){
 				# If Adjusted Option is TRUE
 	            if (adjusted_time) {
 					if (which_chromato) {
-						title <- "TIC adjusted"
+						title <- "Total Ion Chromatogram adjusted"
 		                chrom <- chrom_tic_adjusted
 					} else {
-						title <- "BPC adjusted"
+						title <- "Base Peak Chromatogram adjusted"
 		                chrom <- chrom_bpi_adjusted
 					}
 	            } else {
 					if (which_chromato) {
-						title <- "TIC"
+						title <- "Total Ion Chromatogram"
 		                chrom <- chrom_tic
 					} else {
-						title <- "BPC"
+						title <- "Base Peak Chromatogram"
 		                chrom <- chrom_bpi
 					}
 				}
 	        } else {
 				if (which_chromato) {
-					title <- "TIC"
+					title <- "Total Ion Chromatogram"
 	                chrom <- chrom_tic
 				} else {
-					title <- "BPC"
+					title <- "Base Peak Chromatogram"
 	                chrom <- chrom_bpi
 				}
 	        }
@@ -711,7 +707,7 @@ server <- function(input, output, session){
 			palette <- rainbow(length(levels(merged_data[["sample"]])))
 			names(palette) <- sort(levels(merged_data[["sample"]]))
 			palette(palette)
-			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle("BPC") + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
+			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle("Base Peak Chromatogram") + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
         }
 		return(displayed_chromatogram)
 	}
