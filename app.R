@@ -41,143 +41,194 @@ post_retcor <- hasAdjustedRtime(xdata)
 
 
 ## User Interface
-ui <- bootstrapPage(
-	fluidRow(
-		column(11,
-			wellPanel(
-				bsCollapsePanel(
-					title = HTML("<h3><b>Graph Options</h3></b>"),
-					fluidRow(
-						includeCSS("styles.css"),
-						column(3,
-							h5(strong("Chromatogram displayed :")),
-							switchInput(
-								inputId = "input_chromatogram",
-								label = strong("Chromatogram"),
-								value = FALSE,
-								offLabel = "BPC",
-								onLabel = "TIC"
-							)
-						),
-						column(3,
-							h5(strong("Color by Group :")),
-							switchInput(
-								inputId = "color_by_group",
-								label = HTML("<b>Color&nbsp;by&nbsp;Group</b>"),
-								value = FALSE
-							)
-						),						
-						column(3,
-							h5(strong("Intensity :")),
-							switchInput(
-								inputId = "intensity",
-								label = strong("Intensity"),
-								value = FALSE,
-								offLabel = "Absolute",
-								onLabel = "Relative"
-							)
-						),
-						column(3,
-							if (post_retcor) {
-								uiOutput("display_adjusted")
-							}
-						)
-					),
-					fluidRow(
-						column(3,
-							h5(strong("Versus mode :")),
-							switchInput(
-								inputId = "versus",
-								label = strong("Versus"),
-								value = FALSE
-							)
-						),
-						column(3,
-							conditionalPanel(
-								condition = "input.versus == true",
-								h5(strong("Group or Sample :")),
-								switchInput(
-									inputId = "versus_by",
-									label = strong("Versus"),
-									value = FALSE,
-									offLabel = "Group",
-									onLabel = "Sample"
-								)
-							)
-						),
-						column(6,
-							style = "margin-left: -15px;",
-							fluidRow(
-								conditionalPanel(
-									condition = "input.versus == true && input.versus_by == false",
-									column(6,
-										h5(strong("Upper Group :")),
-										uiOutput("upper_group")
-									)
-								),
-				                conditionalPanel(
-				                    condition = "input.versus == true && input.versus_by == false",
-				                    column(6,
-										h5(strong("Under Group :")),
-										uiOutput("under_group")
-				                    )
-				                ),
-				                conditionalPanel(
-									condition = "input.versus == true && input.versus_by == true",					
-									column(6,
-										h5(strong("Upper Sample(s) :")),
-										uiOutput("upper_sample")
-									)
-								),
-								conditionalPanel(
-				                    condition = "input.versus == true && input.versus_by == true",
-									column(6,				
-										h5(strong("Under Sample(s) :")),
-										uiOutput("under_sample")
-				                    )
-								)
-							)
-						)
-					)					
+ui <- dashboardPage(
+	dashboardHeader(
+		title="Shiny Chromatogram"
+	),
+	dashboardSidebar(
+		h4(strong("Data Filters")),
+		h5(strong("Group displayed :")),
+		selectInput(
+			inputId = "select_group",
+			label = NULL,
+			choices = groups,
+			selected = groups,
+			multiple = TRUE,
+			selectize = TRUE,
+			width = '200px'
+		),
+		h5(strong("Randomize :")),
+		actionButton(
+			inputId = "random_samples",
+			label = paste0(random_number," random samples")
+		),
+		h5(strong("Samples List :")),
+		fluidRow(
+			column(5,
+				style = "margin-left: -15px;",
+				actionButton(
+					inputId = "check_all",
+					label = "Check all"
+				)
+			),
+			column(5,
+				actionButton(
+					inputId = "uncheck",
+					label = "Uncheck all"
 				)
 			)
-		),
-		column(1,
-			fluidRow(
-		        actionButton(
-		            inputId = "draw",
-		            label = "DRAW",
-		            class = "btn-primary"
-		        )
-		    )
-		)
+		),		
+		uiOutput("sample_list"),
+		column(6,
+			style = "margin-left: -15px;",
+			actionButton(
+	            inputId = "export_rdata",
+	            label = "RData",
+	            icon = icon("export", lib = "glyphicon")
+	        )
+	    ),
+        bsPopover(
+			id = "export_rdata",
+			title = "",
+			content = "Export to history selected samples in new RData file.",
+			placement = "bottom",
+			trigger = "hover",
+	  		options = NULL
+	  	),
+		column(6,
+            actionButton(
+                inputId = "export_png",
+                label = "PNG",
+                icon = icon("export", lib = "glyphicon")
+            )
+        ),
+        bsPopover(
+			id = "export_png",
+			title = "",
+			content = "Export the graph in PNG file.",
+			placement = "bottom",
+			trigger = "hover",
+	  		options = NULL
+	  	)		
 	),
-	fluidRow(
-		style = paste("height:", height, "px", sep=""), 
-		column(2,
-			style = "height : 100%",
-			uiOutput("sample_list")
-		),
-		column(10,
-			fluidRow(
-				uiOutput("hover_info")
+	dashboardBody(
+		includeCSS("styles.css"),
+		fluidRow(
+			column(11,
+				style = "margin: 0px 0px 5px -15px",
+				bsCollapse(
+					id = "options_panel",
+					bsCollapsePanel(
+						title = HTML("<h3><b>Graph Options</h3></b>"),
+						fluidRow(
+							column(3,
+								h5(strong("Chromatogram displayed :")),
+								switchInput(
+									inputId = "input_chromatogram",
+									label = strong("Chromatogram"),
+									value = FALSE,
+									offLabel = "BPC",
+									onLabel = "TIC"
+								)
+							),
+							column(3,
+								h5(strong("Color by Group :")),
+								switchInput(
+									inputId = "color_by_group",
+									label = HTML("<b>Color&nbsp;by&nbsp;Group</b>"),
+									value = FALSE
+								)
+							),						
+							column(3,
+								h5(strong("Intensity :")),
+								switchInput(
+									inputId = "intensity",
+									label = strong("Intensity"),
+									value = FALSE,
+									offLabel = "Absolute",
+									onLabel = "Relative"
+								)
+							),
+							column(3,
+								if (post_retcor) {
+									uiOutput("display_adjusted")
+								}
+							)
+						),
+						fluidRow(
+							column(3,
+								h5(strong("Versus mode :")),
+								switchInput(
+									inputId = "versus",
+									label = strong("Versus"),
+									value = FALSE
+								)
+							),
+							column(3,
+								conditionalPanel(
+									condition = "input.versus == true",
+									h5(strong("Group or Sample :")),
+									switchInput(
+										inputId = "versus_by",
+										label = strong("Versus"),
+										value = FALSE,
+										offLabel = "Group",
+										onLabel = "Sample"
+									)
+								)
+							),
+							column(6,
+								style = "margin-left: -15px;",
+								fluidRow(
+									conditionalPanel(
+										condition = "input.versus == true && input.versus_by == false",
+										column(6,
+											h5(strong("Upper Group :")),
+											uiOutput("upper_group")
+										)
+									),
+					                conditionalPanel(
+					                    condition = "input.versus == true && input.versus_by == false",
+					                    column(6,
+											h5(strong("Under Group :")),
+											uiOutput("under_group")
+					                    )
+					                ),
+					                conditionalPanel(
+										condition = "input.versus == true && input.versus_by == true",					
+										column(6,
+											h5(strong("Upper Sample(s) :")),
+											uiOutput("upper_sample")
+										)
+									),
+									conditionalPanel(
+					                    condition = "input.versus == true && input.versus_by == true",
+										column(6,				
+											h5(strong("Under Sample(s) :")),
+											uiOutput("under_sample")
+					                    )
+									)
+								)
+							)
+						)
+					)
+				)
 			),
-			fluidRow(
-	            actionButton(
-	                inputId = "export_png",
-	                label = "PNG",
-	                icon = icon("export", lib = "glyphicon")
-	            ),
-	            bsPopover(
-					id = "export_png",
-					title = "",
-					content = "Export the graph in PNG file.",
-					placement = "bottom",
-					trigger = "hover",
-			  		options = NULL
-			  	)
-	        ),
+			column(1,
+				fluidRow(
+			        actionButton(
+			            inputId = "draw",
+			            label = "DRAW",
+			            class = "btn-primary"
+			        )
+			    )
+			)
+		),	
+		fluidRow(
 	        fluidRow(
+		        uiOutput("hover_info",
+		        	style = "position: absolute;"
+		        ),
 				plotOutput('CHROM', 
 					height = height,
 					dblclick = "dblclick",
@@ -343,65 +394,24 @@ server <- function(input, output, session){
 	output$sample_list <- renderUI({
 		tagList(
 			wellPanel(
-				style = paste0("overflow-y:scroll; max-height: ",height,"px"),
-				HTML("<h3><b>Data Filters</h3></b>"),
-				hr(),
-				h5(strong("Group displayed :")),
-				selectInput(
-					inputId = "select_group",
-					label = NULL,
-					choices = groups,
-					selected = groups,
-					multiple = TRUE,
-					selectize = TRUE,
-					width = '200px'
-				),
-				h5(strong("Randomize :")),
-				actionButton(
-					inputId = "random_samples",
-					label = paste0(random_number," random samples"),
-					width = "100%"
-				),
-				h5(strong("Samples List :")),
-				actionButton(
-					inputId = "check_all",
-					label = "Check all",
-					width = "49%"
-				),
-				actionButton(
-					inputId = "uncheck",
-					label = "Uncheck all",
-					width = "49%"
-				),
-				br(),
+				style = paste0("overflow-y:scroll; background-color: transparent; border-color: transparent; max-height: ",as.character(as.numeric(height)-250),"px"),
 				lapply(input$select_group, function(group) {
 			    	fluidRow(
-			    		bsCollapsePanel(
-							title = h5(paste0(capitalize(group))),	
-			            	coloredCheckboxGroupInput(
-								inputId = paste0("select_",group),
-								label = NULL,
-								choices = subset(raw_names, raw_group == group),
-								selected = subset(raw_names, raw_names %in% files_list()),
-								colors = palette()
-							)
-			            )
-			      	)
-				}),
-				hr(),
-				actionButton(
-	                inputId = "export_rdata",
-	                label = "RData",
-	                icon = icon("export", lib = "glyphicon")
-	            ),
-	            bsPopover(
-					id = "export_rdata",
-					title = "",
-					content = "Export to history selected samples in new RData file.",
-					placement = "bottom",
-					trigger = "hover",
-			  		options = NULL
-			  	)
+						bsCollapse(
+							open=h4(paste0(capitalize(group))),
+				    		bsCollapsePanel(
+								title = h4(paste0(capitalize(group))),	
+				            	coloredCheckboxGroupInput(
+									inputId = paste0("select_",group),
+									label = NULL,
+									choices = subset(raw_names, raw_group == group),
+									selected = subset(raw_names, raw_names %in% files_list()),
+									colors = palette()
+								)
+				            )
+				        )
+			    	)
+				})
 			)
 		)
 	})
@@ -412,21 +422,22 @@ server <- function(input, output, session){
 		merged_table<-merged_data()
 		hover <- input$plot_hover
 
-	    point <- nearPoints(merged_table, hover, xvar = "rtime", yvar = "intensity", threshold = 10, maxpoints = 1)
+	    point <- nearPoints(merged_table, hover, xvar = "rtime", yvar = "intensity", threshold = 10, maxpoints = 1) #addDist=TRUE
 	    if (nrow(point) == 0) return(NULL)
 
 	    left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
 	    top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
     	left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
 	    top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
-	    style <- paste0("position:absolute; z-index:100; background-color: rgba(245, 245, 245, 0.85); ","left:", left_px + 2, "px; top:", top_px + 2, "px;")
+
+		style <- paste0("position:absolute; width:200px; height:80px; z-index:1000; background-color: rgba(245, 245, 245, 0.85); ","left:", left_px-205, "px; top:", top_px-85, "px;")
 
         wellPanel(
 	    	style = style,
 		    p(HTML(paste0(
 		    	"<b>Sample: </b>", point$sample, "<br/>",
-		        "<b>Retention time: </b>", point$rtime, "<br/>",
-		        "<b>Intensity: </b>", point$intensity
+		        "<b>Retention time: </b>", round(point$rtime,3), "<br/>",
+		        "<b>Intensity: </b>", point$intensity, "<br/>"
 		    )))
         )
 	})
@@ -719,6 +730,7 @@ server <- function(input, output, session){
 	  		class="form-group shiny-input-checkboxgroup shiny-input-container shiny-bound-input",
 	    	HTML(paste0('<label class="control-label" for="',inputId,'">',label,'</label>')),
 		    div(
+		    	style="background-color:transparent;",
 		    	class="shiny-options-group",
 		    	HTML(paste0(
 		    		'<div class="checkbox">',

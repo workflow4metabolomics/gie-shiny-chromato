@@ -1,5 +1,5 @@
-h5, h3 {
-	margin: 0 5 0 5 !important;
+h5, h4, h3 {
+	margin: 5px 0px 5px 5px !important;
 }
 
 .row {
@@ -15,10 +15,17 @@ h5, h3 {
 	margin: 0px 0px 5px 0px !important;
 }
 .panel {
-	background-color: transparent;
+	background-color: transparent !important;
+}
+.panel-body {
+	padding: 0px 0px 5px 0px !important;
+}
+.panel-group {
+	margin-bottom: 0px !important;
 }
 .panel-heading {
-    padding: 0px;
+	background-color: transparent !important;
+	padding: 0px;
 }
 .panel-title {
 	margin-left: 10px;
@@ -27,9 +34,11 @@ h5, h3 {
 	margin-bottom: 0px;
 }
 .panel-collapse.collapse{
-    background-color: #f0f0f0;
+	background-color: transparent;
 }
-
+section.sidebar .shiny-input-container {
+	padding: 0px 10px 10px 10px !important;
+}
 .form-group {
 	margin-bottom: 0px;
 }
@@ -41,13 +50,14 @@ h5, h3 {
 	top: calc(40%);
 	left: calc(40%);
 }
+.popover {
+	width: 200px;
+}
+.popover-content {
+	color: black;
+}
 
 #draw {
-	margin: 25px 0 5px -15px;
+	margin: 0px 0 5px -15px;
 	width : calc(100% + 15px);
-}
-#export_png {
-	position : absolute;
-	right: 25px;
-	top: 35px;
 }
