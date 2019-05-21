@@ -118,6 +118,7 @@ ui <- dashboardPage(
 				style = "margin: 0px 0px 5px -15px",
 				bsCollapse(
 					id = "options_panel",
+					#open = HTML("<h3><b>Graph Options</h3></b>"),
 					bsCollapsePanel(
 						title = HTML("<h3><b>Graph Options</h3></b>"),
 						fluidRow(
@@ -229,7 +230,7 @@ ui <- dashboardPage(
 		        uiOutput("hover_info",
 		        	style = "position: absolute;"
 		        ),
-				plotOutput('CHROM', 
+				plotOutput('CHROM',
 					height = height,
 					dblclick = "dblclick",
 			        brush = brushOpts(
@@ -257,7 +258,6 @@ server <- function(input, output, session){
 	files_list <- reactiveVal(0)
 	merged_data <- reactiveVal(0)
 	palette <- reactiveVal(rainbow(length(raw_names)))
-
 
 	## Get Filters Values
 	# On-click Draw button action
@@ -492,7 +492,7 @@ server <- function(input, output, session){
 
 
 	## Graph Event
-	# Hover
+	# Zoom
 	ranges <- reactiveValues(x = NULL, y = NULL)
 	observeEvent(input$dblclick, {
 	    brush <- input$brush
