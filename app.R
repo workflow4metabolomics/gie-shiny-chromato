@@ -17,7 +17,7 @@ load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 
 ## Settings
 # Graph settings
-height <- "750"
+height <- "650"
 
 # Init raws variables
 raw_names <- xdata@phenoData@data$sample_name
@@ -116,6 +116,12 @@ ui <- dashboardPage(
 					id = "options_panel",
 					bsCollapsePanel(
 						title = HTML("<h3><b>Graph Options</h3></b>"),
+						fluidRow(
+							column(3,
+								h5(strong("Graph height :")),
+								numericInput("height", label=NULL, value=500)
+							)
+						),
 						fluidRow(
 							column(3,
 								h5(strong("Chromatogram displayed :")),
