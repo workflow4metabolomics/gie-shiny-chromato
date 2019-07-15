@@ -36,10 +36,6 @@ if (random_number > length(raw_names)) {
 post_retcor <- hasAdjustedRtime(xdata)
 
 
-## Import files by copying them, not used because to slow (identifier_type='name' because of filename and not hid)
-#gx_get(raw_names, identifier_type='name')
-
-
 ## User Interface
 ui <- dashboardPage(
 	dashboardHeader(
@@ -77,39 +73,39 @@ ui <- dashboardPage(
 					label = "Uncheck all"
 				)
 			)
-		),		
+		),
 		uiOutput("sample_list"),
 		column(6,
 			style = "margin-left: -15px;",
 			actionButton(
-	            inputId = "export_rdata",
-	            label = "RData",
-	            icon = icon("export", lib = "glyphicon")
-	        )
-	    ),
-        bsPopover(
+				inputId = "export_rdata",
+				label = "RData",
+				icon = icon("export", lib = "glyphicon")
+			)
+		),
+		bsPopover(
 			id = "export_rdata",
 			title = "",
 			content = "Export to history selected samples in new RData file.",
 			placement = "bottom",
 			trigger = "hover",
-	  		options = NULL
-	  	),
+			options = NULL
+		),
 		column(6,
-            actionButton(
-                inputId = "export_png",
-                label = "PNG",
-                icon = icon("export", lib = "glyphicon")
-            )
-        ),
-        bsPopover(
+			actionButton(
+				inputId = "export_png",
+				label = "PNG",
+				icon = icon("export", lib = "glyphicon")
+			)
+		),
+		bsPopover(
 			id = "export_png",
 			title = "",
 			content = "Export the graph in PNG file.",
 			placement = "bottom",
 			trigger = "hover",
-	  		options = NULL
-	  	)		
+			options = NULL
+		)
 	),
 	dashboardBody(
 		includeCSS("styles.css"),
@@ -118,7 +114,6 @@ ui <- dashboardPage(
 				style = "margin: 0px 0px 5px -15px",
 				bsCollapse(
 					id = "options_panel",
-					#open = HTML("<h3><b>Graph Options</h3></b>"),
 					bsCollapsePanel(
 						title = HTML("<h3><b>Graph Options</h3></b>"),
 						fluidRow(
@@ -139,7 +134,7 @@ ui <- dashboardPage(
 									label = HTML("<b>Color&nbsp;by&nbsp;Group</b>"),
 									value = FALSE
 								)
-							),						
+							),
 							column(3,
 								h5(strong("Intensity :")),
 								switchInput(
@@ -188,14 +183,14 @@ ui <- dashboardPage(
 											uiOutput("upper_group")
 										)
 									),
-					                conditionalPanel(
-					                    condition = "input.versus == true && input.versus_by == false",
-					                    column(6,
+									conditionalPanel(
+										condition = "input.versus == true && input.versus_by == false",
+										column(6,
 											h5(strong("Under Group :")),
 											uiOutput("under_group")
-					                    )
-					                ),
-					                conditionalPanel(
+										)
+									),
+									conditionalPanel(
 										condition = "input.versus == true && input.versus_by == true",					
 										column(6,
 											h5(strong("Upper Sample(s) :")),
@@ -203,11 +198,11 @@ ui <- dashboardPage(
 										)
 									),
 									conditionalPanel(
-					                    condition = "input.versus == true && input.versus_by == true",
-										column(6,				
+										condition = "input.versus == true && input.versus_by == true",
+										column(6,
 											h5(strong("Under Sample(s) :")),
 											uiOutput("under_sample")
-					                    )
+										)
 									)
 								)
 							)
@@ -217,28 +212,31 @@ ui <- dashboardPage(
 			),
 			column(1,
 				fluidRow(
-			        actionButton(
-			            inputId = "draw",
-			            label = "DRAW",
-			            class = "btn-primary"
-			        )
-			    )
+					actionButton(
+						inputId = "draw",
+						label = "DRAW",
+						class = "btn-primary"
+					)
+				)
 			)
-		),	
+		),
 		fluidRow(
-	        fluidRow(
-		        uiOutput("hover_info",
-		        	style = "position: absolute;"
-		        ),
+			HTML("<small>Zoom: Drag and drop and double-click in the box. Double-click to zoom out.</small>")
+		),
+		fluidRow(
+			fluidRow(
+				uiOutput("hover_info",
+					style = "position: absolute;"
+				),
 				plotOutput('CHROM',
 					height = height,
 					dblclick = "dblclick",
-			        brush = brushOpts(
-			        	id = "brush",
-			        	resetOnNew = TRUE
-			        ),
-		        	hover = hoverOpts("plot_hover", delay = 100, delayType = "debounce")
-		        )
+					brush = brushOpts(
+						id = "brush",
+						resetOnNew = TRUE
+					),
+					hover = hoverOpts("plot_hover", delay = 100, delayType = "debounce")
+				)
 			)
 		)
 	)
@@ -247,17 +245,12 @@ ui <- dashboardPage(
 server <- function(input, output, session){
 
 	## Initialize variables
-	# Get pre-calculate chromatogram from chromTIC and chromBPI objects
-	chrom_tic <- chromTIC
-	chrom_bpi <- chromBPI
-	if (post_retcor) {
-		chrom_tic_adjusted <- chromTIC_adjusted
-		chrom_bpi_adjusted <- chromBPI_adjusted
-	}
-
 	files_list <- reactiveVal(0)
 	merged_data <- reactiveVal(0)
-	palette <- reactiveVal(rainbow(length(raw_names)))
+
+	palette <- rainbow(length(raw_names))
+	names(palette) <- sort(raw_names)
+	reac_palette <- reactiveVal(palette)
 
 	## Get Filters Values
 	# On-click Draw button action
@@ -267,9 +260,9 @@ server <- function(input, output, session){
 	}) 
 
 	# Chromatogram displayed
-    which_chromatogram <- eventReactive(input$draw, {
-        which_chromatogram <- input$input_chromatogram
-    })
+	which_chromatogram <- eventReactive(input$draw, {
+		which_chromatogram <- input$input_chromatogram
+	})
 
 	# Intensity
 	relative_intensity <- eventReactive(input$draw, {
@@ -322,8 +315,8 @@ server <- function(input, output, session){
 		HTML(paste0("<center><h3><b>BEWARE OF</b></h3></center> <br><br> <center><h4>By default, about ", samples_to_display ," samples are displayed for readability.</h4></center>")),
 		duration = 20,
 		closeButton = TRUE,
-	  	id = NULL,
-	  	type = "warning",
+		id = NULL,
+		type = "warning",
 		session = getDefaultReactiveDomain()
 	)
 
@@ -337,7 +330,7 @@ server <- function(input, output, session){
 				inputId = "adjustedTime",
 				label = strong("Adjusted"),
 				value = FALSE
-			)	
+			)
 		)
 	})
 
@@ -350,7 +343,7 @@ server <- function(input, output, session){
 				label = NULL,
 				choices = input$select_group,
 				width = "180px"
-			)	
+			)
 		)
 	})
 	output$under_group <- renderUI({
@@ -374,7 +367,7 @@ server <- function(input, output, session){
 				multiple = TRUE,
 				selectize = FALSE,
 				width = "180px"
-			)	
+			)
 		)
 	})
 	output$under_sample <- renderUI({
@@ -394,23 +387,23 @@ server <- function(input, output, session){
 	output$sample_list <- renderUI({
 		tagList(
 			wellPanel(
-				style = paste0("overflow-y:scroll; background-color: transparent; border-color: transparent; max-height: ",as.character(as.numeric(height)-250),"px"),
+				style = paste0("overflow-y:scroll; background-color: transparent; border-color: transparent; max-height:", as.character(as.numeric(height)-250),"px"),
 				lapply(input$select_group, function(group) {
-			    	fluidRow(
+					fluidRow(
 						bsCollapse(
 							open=h4(paste0(capitalize(group))),
-				    		bsCollapsePanel(
+							bsCollapsePanel(
 								title = h4(paste0(capitalize(group))),	
-				            	coloredCheckboxGroupInput(
+								coloredCheckboxGroupInput(
 									inputId = paste0("select_",group),
 									label = NULL,
 									choices = subset(raw_names, raw_group == group),
 									selected = subset(raw_names, raw_names %in% files_list()),
-									colors = palette()
+									colors = reac_palette()
 								)
-				            )
-				        )
-			    	)
+							)
+						)
+					)
 				})
 			)
 		)
@@ -422,43 +415,43 @@ server <- function(input, output, session){
 		merged_table<-merged_data()
 		hover <- input$plot_hover
 
-	    point <- nearPoints(merged_table, hover, xvar = "rtime", yvar = "intensity", threshold = 10, maxpoints = 1) #addDist=TRUE
-	    if (nrow(point) == 0) return(NULL)
+		point <- nearPoints(merged_table, hover, xvar = "rtime", yvar = "intensity", threshold = 10, maxpoints = 1) #addDist=TRUE
+		if (nrow(point) == 0) return(NULL)
 
-	    left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
-	    top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
-    	left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
-	    top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
+		left_pct <- (hover$x - hover$domain$left) / (hover$domain$right - hover$domain$left)
+		top_pct <- (hover$domain$top - hover$y) / (hover$domain$top - hover$domain$bottom)
+		left_px <- hover$range$left + left_pct * (hover$range$right - hover$range$left)
+		top_px <- hover$range$top + top_pct * (hover$range$bottom - hover$range$top)
 
 		style <- paste0("position:absolute; width:200px; height:80px; z-index:1000; background-color: rgba(245, 245, 245, 0.85); ","left:", left_px-205, "px; top:", top_px-85, "px;")
 
-        wellPanel(
-	    	style = style,
-		    p(HTML(paste0(
-		    	"<b>Sample: </b>", point$sample, "<br/>",
-		        "<b>Retention time: </b>", round(point$rtime,3), "<br/>",
-		        "<b>Intensity: </b>", point$intensity, "<br/>"
-		    )))
-        )
+		wellPanel(
+			style = style,
+			p(HTML(paste0(
+				"<b>Sample: </b>", point$sample, "<br/>",
+				"<b>Retention time: </b>", round(point$rtime,3), "<br/>",
+				"<b>Intensity: </b>", point$intensity, "<br/>"
+			)))
+		)
 	})
 
 
 	## Update Events
 	# Update Sample Versus
 	observeEvent(input$draw, {
-    	updateSelectInput(
-    		session = session, 
-    		inputId = "p_sample",
-    		choices = selected_samples()
-    	)
-  	})
+		updateSelectInput(
+			session = session, 
+			inputId = "p_sample",
+			choices = selected_samples()
+		)
+	})
 	observeEvent(input$draw, {
-    	updateSelectInput(
-    		session = session, 
-    		inputId = "n_sample",
-    		choices = subset(selected_samples(), !(selected_samples() %in% input$p_sample)),
-    	)
-  	})
+		updateSelectInput(
+			session = session, 
+			inputId = "n_sample",
+			choices = subset(selected_samples(), !(selected_samples() %in% input$p_sample)),
+		)
+	})
 
 	# Update Samples List (Un/Check All, Random)
 	observeEvent(input$check_all, {
@@ -495,38 +488,38 @@ server <- function(input, output, session){
 	# Zoom
 	ranges <- reactiveValues(x = NULL, y = NULL)
 	observeEvent(input$dblclick, {
-	    brush <- input$brush
-	    if (!is.null(brush)) {
-	    	ranges$x <- c(brush$xmin, brush$xmax)
-	    	ranges$y <- c(brush$ymin, brush$ymax)
-	    } else {
-	    	ranges$x <- NULL
-	    	ranges$y <- NULL
-	    }
-  	})
+		brush <- input$brush
+		if (!is.null(brush)) {
+			ranges$x <- c(brush$xmin, brush$xmax)
+			ranges$y <- c(brush$ymin, brush$ymax)
+		} else {
+			ranges$x <- NULL
+			ranges$y <- NULL
+		}
+	})
 
 
 	## Export Event
 	# Display confirm message box before to export RData in history
-    observeEvent(input$export_rdata, {
-	    confirmSweetAlert(
-	  		session = session,
-	  		inputId = "confirmation",
-		    title = "Export RData file in history containing only displayed samples.",
-		    text = HTML("To continue the workflow from the exported RData file,<br>please restart from the step <b>groupChromPeaks/adjustRTime</b>."),
-		    type = "warning",
-		    btn_labels = c("Cancel", "Confirm"),
-		    closeOnClickOutside = TRUE,
-		  	html = TRUE
+	observeEvent(input$export_rdata, {
+		confirmSweetAlert(
+			session = session,
+			inputId = "confirmation",
+			title = "Export RData file in history containing only displayed samples.",
+			text = HTML("To continue the workflow from the exported RData file,<br>please restart from the step <b>groupChromPeaks/adjustRTime</b>."),
+			type = "warning",
+			btn_labels = c("Cancel", "Confirm"),
+			closeOnClickOutside = TRUE,
+			html = TRUE
 		)
 	})
 	# Export filter datas in History as RData file => Change to xdata filter by samples display
 	observeEvent(input$confirmation, {
 		if (isTRUE(input$confirmation)) {
-			#basename <- file_path_sans_ext(Sys.getenv("ORIGIN_FILENAME"))
-			#extension <- ".chromato.RData"
-			#filename <- paste0(basename, extension, sep="")
-			filename <- "xset.merged.chromato.RData"
+			basename <- file_path_sans_ext(basename(Sys.getenv("ORIGIN_FILENAME")))
+			extension <- ".chromato.RData"
+			filename <- paste0(basename, extension, sep="")
+			#filename <- "xset.merged.chromato.RData"
 			filetype <- "rdata.xcms.findchrompeaks"
 
 			# Update xdata
@@ -581,7 +574,7 @@ server <- function(input, output, session){
 	# Build Dynamic Plot
 	displayed_chromatogram <- reactive({
 		reactive_chromatogram <- build_chromato(raw_names, raw_group, which_chromatogram(), draw_chromato$value, selected_samples(), post_retcor, adjusted_time(), relative_intensity(), col_group(), versus_mode(), versus_by(), pos_group(), neg_group(), pos_sample(), neg_sample())
-	})		
+	})
 	# Render Plot
 	output$CHROM <- renderPlot({
 		plot <- displayed_chromatogram() + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE) + guides(col=FALSE)
@@ -593,41 +586,41 @@ server <- function(input, output, session){
 	# Building chromatogram function
 	build_chromato <- function(raw_names, raw_group, which_chromato, draw_chromato, samples_selected, post_retcor, adjusted_time, relative_intensity, col_group, versus_mode, versus_by, pos_group, neg_group, pos_sample, neg_sample) {
 
-        if(is.null(raw_names)) return(displayed_chromatogram)
-        else if(!length(raw_names)) return(displayed_chromatogram)
+		if(is.null(raw_names)) return(displayed_chromatogram)
+		else if(!length(raw_names)) return(displayed_chromatogram)
 
-        if (draw_chromato != 0){
+		if (draw_chromato != 0){
 
-	        # According to Adjusted Time
+			# According to Adjusted Time
 			# If retcor has been done
-	        if (post_retcor) {
+			if (post_retcor) {
 				# If Adjusted Option is TRUE
-	            if (adjusted_time) {
+				if (adjusted_time) {
 					if (which_chromato) {
 						title <- "Total Ion Chromatogram adjusted"
-		                chrom <- chrom_tic_adjusted
+						chrom <- chromTIC_adjusted
 					} else {
 						title <- "Base Peak Chromatogram adjusted"
-		                chrom <- chrom_bpi_adjusted
+						chrom <- chromBPI_adjusted
 					}
-	            } else {
+				} else {
 					if (which_chromato) {
 						title <- "Total Ion Chromatogram"
-		                chrom <- chrom_tic
+						chrom <- chromTIC
 					} else {
 						title <- "Base Peak Chromatogram"
-		                chrom <- chrom_bpi
+						chrom <- chromBPI
 					}
 				}
-	        } else {
+			} else {
 				if (which_chromato) {
 					title <- "Total Ion Chromatogram"
-	                chrom <- chrom_tic
+					chrom <- chromTIC
 				} else {
 					title <- "Base Peak Chromatogram"
-	                chrom <- chrom_bpi
+					chrom <- chromBPI
 				}
-	        }
+			}
 
 			files_list(samples_selected)
 
@@ -638,22 +631,22 @@ server <- function(input, output, session){
 				intens_max <- max(chrom[[index]]@intensity)
 
 				# In case of versus mode
-                if (versus_mode) {
-                	if (versus_by) {
-    	            	if (raw_names[index] %in% neg_sample) {
-			                intens <- -intens
-	                    } else if ( !(raw_names[index] %in% neg_sample) && !(raw_names[index] %in% pos_sample) ) {
-	                        intens <- 0
-	                	}
-                	} else {
-    	            	if (raw_group[index] %in% neg_group) {
-			                intens <- -intens
-	                    } else if ( !(raw_group[index] %in% neg_group) && !(raw_group[index] %in% pos_group) ) {
-	                        intens <- 0
-	                	}
-                	}
-                }
-                # In case of relative intensity
+				if (versus_mode) {
+				if (versus_by) {
+					if (raw_names[index] %in% neg_sample) {
+						intens <- -intens
+						} else if ( !(raw_names[index] %in% neg_sample) && !(raw_names[index] %in% pos_sample) ) {
+							intens <- 0
+						}
+					} else {
+						if (raw_group[index] %in% neg_group) {
+							intens <- -intens
+						} else if ( !(raw_group[index] %in% neg_group) && !(raw_group[index] %in% pos_group) ) {
+							intens <- 0
+						}
+					}
+				}
+				# In case of relative intensity
 				if (relative_intensity) {
 					intens <- intens*100/intens_max
 				}
@@ -675,18 +668,16 @@ server <- function(input, output, session){
 					palette
 				})
 				palette <- do.call(c, palette)
-				palette(palette)
+				reac_palette(palette)
 			} else {
-				palette <- rainbow(length(levels(merged_data[["sample"]])))
-				names(palette) <- sort(levels(merged_data[["sample"]]))
-				palette(palette)
+				reac_palette(palette)
 			}
 			
-			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle(title) + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
+			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = reac_palette()) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle(title) + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
 
-        } else {
+		} else {
 
-			chrom <- chrom_bpi
+			chrom <- chromBPI
 
 			# Limit the number of samples displayed
 			get_samples_list <- NULL
@@ -715,33 +706,30 @@ server <- function(input, output, session){
 			merged_data <- list.rbind(data_tables)
 			merged_data(merged_data)
 
-			palette <- rainbow(length(levels(merged_data[["sample"]])))
-			names(palette) <- sort(levels(merged_data[["sample"]]))
-			palette(palette)
-			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = palette) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle("Base Peak Chromatogram") + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
-        }
+			displayed_chromatogram <- ggplot(data=merged_data, aes(x=c(merged_data[["rtime"]]), y=c(merged_data[["intensity"]]), col=c(as.character(merged_data[["sample"]])))) + scale_colour_manual(name = merged_data[["sample"]], values = reac_palette()) + geom_line() + xlab("Retention Time") + ylab("Intensity") + ggtitle("Base Peak Chromatogram") + theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
+		}
 		return(displayed_chromatogram)
 	}
 
 	# Checkbox Group Input
 	coloredCheckboxGroupInput <- function(inputId, label, choices, selected, colors){
-	  	div(
-	  		id=inputId,
-	  		class="form-group shiny-input-checkboxgroup shiny-input-container shiny-bound-input",
-	    	HTML(paste0('<label class="control-label" for="',inputId,'">',label,'</label>')),
-		    div(
-		    	style="background-color:transparent;",
-		    	class="shiny-options-group",
-		    	HTML(paste0(
-		    		'<div class="checkbox">',
-		            	'<label>',
-		                    '<input type="checkbox" name="', inputId, '" value="', choices, '"', ifelse(choices %in% selected, 'checked="checked"', ''), '/>',
-		                    '<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; color:', colors[choices],'"'),'style="font-size: 16px;"'), '>',choices,'</span>',
-	                    '</label>',
-	                '</div>', collapse = " "
-	            ))
-		    )
-	    )
+		div(
+			id=inputId,
+			class="form-group shiny-input-checkboxgroup shiny-input-container shiny-bound-input",
+			HTML(paste0('<label class="control-label" for="',inputId,'">',label,'</label>')),
+			div(
+				style="background-color:transparent;",
+				class="shiny-options-group",
+				HTML(paste0(
+					'<div class="checkbox">',
+						'<label>',
+							'<input type="checkbox" name="', inputId, '" value="', choices, '"', ifelse(choices %in% selected, 'checked="checked"', ''), '/>',
+							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; color:', colors[choices],'"'),'style="font-size: 16px;"'), '>',choices,'</span>',
+						'</label>',
+					'</div>', collapse = " "
+				))
+			)
+		)
 	}
 }
 

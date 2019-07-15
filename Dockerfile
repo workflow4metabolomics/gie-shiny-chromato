@@ -1,7 +1,5 @@
 FROM quay.io/workflow4metabolomics/gie-shiny:latest
 
-# FROM gie-shiny
-
 # Installing packages needed
 RUN apt-get update && \
     apt-get install --no-install-recommends -y libnetcdf-dev
@@ -17,5 +15,4 @@ RUN rm -rf /srv/shiny-server/sample-apps && \
     chmod -R 755 /srv/shiny-server/samples/chromato_visu && \
     chown shiny.shiny /srv/shiny-server/samples/chromato_visu
 
-COPY ./app.R /srv/shiny-server/samples/chromato_visu/app.R
-COPY ./static/css/styles.css /srv/shiny-server/samples/chromato_visu/styles.css
+COPY ./app.R ./static/css/styles.css /srv/shiny-server/samples/chromato_visu/
