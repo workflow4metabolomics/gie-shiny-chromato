@@ -16,9 +16,6 @@ library(rio)
 load("/srv/shiny-server/samples/chromato_visu/inputdata.dat")
 
 ## Settings
-# Graph settings
-height <- "650"
-
 # Init raws variables
 raw_names <- xdata@phenoData@data$sample_name
 raw_group <- xdata@phenoData@data$sample_group
@@ -118,8 +115,8 @@ ui <- dashboardPage(
 						title = HTML("<h3><b>Graph Options</h3></b>"),
 						fluidRow(
 							column(3,
-								h5(strong("Graph height :")),
-								numericInput("height", label=NULL, value=500)
+								h5(strong("Graph height (px) :")),
+								numericInput("height", label=NULL, value=600)
 							)
 						),
 						fluidRow(
@@ -235,7 +232,6 @@ ui <- dashboardPage(
 					style = "position: absolute;"
 				),
 				plotOutput('CHROM',
-					height = height,
 					dblclick = "dblclick",
 					brush = brushOpts(
 						id = "brush",
@@ -393,7 +389,7 @@ server <- function(input, output, session){
 	output$sample_list <- renderUI({
 		tagList(
 			wellPanel(
-				style = paste0("overflow-y:scroll; background-color: transparent; border-color: transparent; max-height:", as.character(as.numeric(height)-250),"px"),
+				style = paste0("overflow-y:scroll; background-color: transparent; border-color: transparent; max-height:", as.character(input$height-250),"px"),
 				lapply(input$select_group, function(group) {
 					fluidRow(
 						bsCollapse(
@@ -585,7 +581,9 @@ server <- function(input, output, session){
 	output$CHROM <- renderPlot({
 		plot <- displayed_chromatogram() + coord_cartesian(xlim = ranges$x, ylim = ranges$y, expand = FALSE) + guides(col=FALSE)
 		return(plot)
-	})
+	},
+		height = function(x) input$height
+	)
 
 
 	## Functions
