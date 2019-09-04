@@ -3,6 +3,7 @@ library(shiny)
 library(shinyWidgets)
 library(shinyBS)
 library(shinydashboard)
+library(shinyjs)
 library(xcms)
 library(ggplot2)
 library(RColorBrewer)
@@ -105,6 +106,7 @@ ui <- dashboardPage(
 		)
 	),
 	dashboardBody(
+		useShinyjs(),
 		includeCSS("styles.css"),
 		fluidRow(
 			column(11,
@@ -149,9 +151,14 @@ ui <- dashboardPage(
 								)
 							),
 							column(3,
-								if (post_retcor) {
-									uiOutput("display_adjusted")
-								}
+								div(id="adjRT_panel",
+									h5(strong("Adjusted RTime :")),
+									switchInput(
+										inputId = "adjustedTime",
+										label = strong("Adjusted"),
+										value = FALSE
+									)
+								)
 							)
 						),
 						fluidRow(
@@ -254,6 +261,7 @@ server <- function(input, output, session){
 	names(palette) <- sort(raw_names)
 	reac_palette <- reactiveVal(palette)
 
+
 	## Get Filters Values
 	# On-click Draw button action
 	draw_chromato <- reactiveValues(value = 0)
@@ -314,7 +322,7 @@ server <- function(input, output, session){
 
 	## Notification
 	showNotification(
-		HTML(paste0("<center><h3><b>BEWARE OF</b></h3></center> <br><br> <center><h4>By default, about ", samples_to_display ," samples are displayed for readability.</h4></center>")),
+		HTML(paste0("<center><h3><b>BEWARE OF</b></h3></center><br><br><center><h4>By default, about ", samples_to_display ," samples are displayed for readability.</h4></center>")),
 		duration = 20,
 		closeButton = TRUE,
 		id = NULL,
@@ -323,18 +331,6 @@ server <- function(input, output, session){
 	)
 
 
-	## Dynamic User Interface
-	# Adjusted filter (if retcor done)
-	output$display_adjusted <- renderUI({
-		tagList(
-			h5(strong("Adjusted RTime :")),
-			switchInput(
-				inputId = "adjustedTime",
-				label = strong("Adjusted"),
-				value = FALSE
-			)
-		)
-	})
 
 	# Versus Upper/Under Filters
 	#-groups-#
@@ -386,6 +382,7 @@ server <- function(input, output, session){
 	})
 
 	# Samples List
+	# Samples List
 	output$sample_list <- renderUI({
 		tagList(
 			wellPanel(
@@ -393,9 +390,9 @@ server <- function(input, output, session){
 				lapply(input$select_group, function(group) {
 					fluidRow(
 						bsCollapse(
-							open=h4(paste0(capitalize(group))),
+							open=HTML('<h4><b>', capitalize(group),'</b></h4>'),
 							bsCollapsePanel(
-								title = h4(paste0(capitalize(group))),	
+								title = HTML('<h4><b>', capitalize(group),'</b></h4>'),
 								coloredCheckboxGroupInput(
 									inputId = paste0("select_",group),
 									label = NULL,
@@ -683,6 +680,12 @@ server <- function(input, output, session){
 
 			chrom <- chromBPI
 
+			# Display the Adjusted RTime panel if retcor step done
+			if (post_retcor) {
+				show("adjRT_panel")
+			} else {
+				hide("adjRT_panel")
+			}
 			# Limit the number of samples displayed
 			get_samples_list <- NULL
 			files_to_add <- 0
@@ -728,7 +731,7 @@ server <- function(input, output, session){
 					'<div class="checkbox">',
 						'<label>',
 							'<input type="checkbox" name="', inputId, '" value="', choices, '"', ifelse(choices %in% selected, 'checked="checked"', ''), '/>',
-							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; color:', colors[choices],'"'),'style="font-size: 16px;"'), '>',choices,'</span>',
+							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; text-shadow: 1px 1px 1px black; color:', colors[choices],'"')), '>',choices,'</span>',						
 						'</label>',
 					'</div>', collapse = " "
 				))
