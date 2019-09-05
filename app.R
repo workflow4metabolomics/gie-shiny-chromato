@@ -731,7 +731,7 @@ server <- function(input, output, session){
 					'<div class="checkbox">',
 						'<label>',
 							'<input type="checkbox" name="', inputId, '" value="', choices, '"', ifelse(choices %in% selected, 'checked="checked"', ''), '/>',
-							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; text-shadow: 1px 1px 1px black; color:', colors[choices],'"')), '>',choices,'</span>',						
+							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; text-shadow: 1px 1px 1px black; color:', colors[choices],'"'), paste0('style="font-size: 16px;"')), '>',choices,'</span>',
 						'</label>',
 					'</div>', collapse = " "
 				))
