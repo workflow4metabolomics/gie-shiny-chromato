@@ -5,6 +5,7 @@ library(shinyBS)
 library(shinydashboard)
 library(shinyjs)
 library(xcms)
+library(GalaxyConnector)
 library(ggplot2)
 library(RColorBrewer)
 library(stringr)
@@ -315,8 +316,14 @@ server <- function(input, output, session){
 	selected_samples <- eventReactive(input$draw, {
 		s_list <- lapply(input$select_group, function(group){
 			input[[paste0("select_",group)]]
-		})
+		})		
 		selected_samples <- do.call(c, s_list)
+		validate(
+			need(length(selected_samples) > 0, 
+				HTML("Please select a data set to display")
+			)
+		)
+		selected_samples
 	})
 
 
@@ -329,7 +336,6 @@ server <- function(input, output, session){
 		type = "warning",
 		session = getDefaultReactiveDomain()
 	)
-
 
 
 	# Versus Upper/Under Filters
@@ -731,7 +737,7 @@ server <- function(input, output, session){
 					'<div class="checkbox">',
 						'<label>',
 							'<input type="checkbox" name="', inputId, '" value="', choices, '"', ifelse(choices %in% selected, 'checked="checked"', ''), '/>',
-							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; text-shadow: 1px 1px 1px black; color:', colors[choices],'"'), paste0('style="font-size: 16px;"')), '>',choices,'</span>',
+							'<span ', ifelse(choices %in% selected, paste0('style="font-size: 16px; text-shadow: 1px 1px 1px black, -1px -1px 1px black, -1px 1px 1px black, 1px -1px 1px black; color:', colors[choices],'"'), paste0('style="font-size: 16px;"')), '>',choices,'</span>',
 						'</label>',
 					'</div>', collapse = " "
 				))
